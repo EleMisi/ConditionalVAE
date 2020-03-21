@@ -33,7 +33,7 @@ if __name__ == '__main__':
     print("\n Start train the CVAE \n")
     
     #---------------Parameters----------------
-    save_path = "./log/CVAE_%s/" % (args.z_dim)
+    save_path = "./log/CVAE_%i/" % (args.z_dim)
     param = get_parameter("./parameters.json", args.z_dim)
     opt = dict(nn_architecture=param, batch_size=args.batch_size, learning_rate=args.lr, save_path=save_path,
                max_grad_norm=args.clip)

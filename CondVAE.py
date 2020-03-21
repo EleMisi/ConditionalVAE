@@ -2,6 +2,8 @@ import tensorflow as tf
 import numpy as np 
 from tensorflow.contrib.layers import xavier_initializer_conv2d, variance_scaling_initializer, xavier_initializer
 from loss import reconstruction_loss, latent_loss
+from utils import full_connected
+
 
 
 class CVAE (object) :
@@ -56,16 +58,16 @@ class CVAE (object) :
         tf.summary.scalar("loss", self.loss)
 
         #--------Session-------------
-        self.session = tf.Session(config = tf.ConfigProto(log_device_placement=False))
+        self.sess = tf.Session(config = tf.ConfigProto(log_device_placement=False))
 
         #---------Summary writer for tensor board--------
         self.summary = tf.summary.merge_all()
         if save_path:
-            self.writer = tf.summary.FileWriter(save_path, self.session.graph)
+            self.writer = tf.summary.FileWriter(save_path, self.sess.graph)
         #---------Load model---------
         if load_model:
             tf.reset_default_graph()
-            self.saver.restore(self.session, load_model)
+            self.saver.restore(self.sess, load_model)
     
     def _create_network(self):
         """Create the Network and define the Loss function and the Optimizer"""
@@ -89,15 +91,12 @@ class CVAE (object) :
                                           activation = self.activation_fn, 
                                           kernel_initializer = self.initializer)(_output1)
 
-            self.z_mean = tf.keras.layers.Dense(self.nn_architecture["z_dim"],
-                                            input_shape = (self.nn_architecture["hidden_enc_2_dim"],),
-                                            activation = self.activation_fn, 
-                                            kernel_initializer = self.initializer)(_output2)
-
-            self.z_log_sigma_sq = tf.keras.layers.Dense(self.nn_architecture["z_dim"],
-                                                    input_shape = (self.nn_architecture["hidden_enc_2_dim"],),
-                                                    activation = self.activation_fn, 
-                                                    kernel_initializer = self.initializer)(_output2)
+            # full connect to get "mean" and "sigma"
+            self.z_mean = full_connected(_output2, [self.nn_architecture["hidden_enc_2_dim"],
+                                                  self.nn_architecture["z_dim"]], self.initializer)
+            # self.z_mean = tf.where(tf.is_inf(z_mean), 0.0, z_mean)
+            self.z_log_sigma_sq = full_connected(_output2, [self.nn_architecture["hidden_enc_2_dim"],
+                                                          self.nn_architecture["z_dim"]], self.initializer)
 
         #------------Reparametrization---------------
         eps = tf.random_normal((self.batch_size, self.nn_architecture["z_dim"]), mean=0, stddev=1, dtype=tf.float32)
@@ -117,10 +116,8 @@ class CVAE (object) :
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer)(_output1)
             
-            _output = tf.keras.layers.Dense(self.nn_architecture["input_dim"], 
-                                            input_shape = (self.nn_architecture["hidden_dec_1_dim"],),
-                                            activation = self.activation_fn, 
-                                            kernel_initializer = self.initializer)(_output2)
+            _output = full_connected(_output2, [self.nn_architecture["hidden_dec_2_dim"],
+                                             self.nn_architecture["input_dim"]], self.initializer)
 
             self.x_decoder_mean = tf.nn.sigmoid(_output)
 
@@ -130,8 +127,7 @@ class CVAE (object) :
             self.reconstr_loss = tf.reduce_mean(reconstruction_loss(original = self.x, 
                                                 reconstruction = self.x_decoder_mean))
             self.latent_loss = tf.reduce_mean(latent_loss(self.z_mean, self.z_log_sigma_sq))
-            self.loss = (tf.where(tf.is_nan(self.reconstr_loss), 0.0, self.reconstr_loss) + 
-                            tf.where(tf.is_nan(self.latent_loss), 0.0, self.latent_loss))
+            self.loss = tf.where(tf.is_nan(self.reconstr_loss), 0.0, self.reconstr_loss) + tf.where(tf.is_nan(self.latent_loss), 0.0, self.latent_loss)
 
         #-----------Optimizer---------------
         optimizer = tf.train.AdamOptimizer(self.learning_rate)
@@ -150,11 +146,11 @@ class CVAE (object) :
         """Reconstruct a given data. """
         assert len(inputs) == self.batch_size
         assert len(label) == self.batch_size
-        return self.session.run(self.x_decoder_mean, feed_dict={self.x: inputs, self.y: label})
+        return self.sess.run(self.x_decoder_mean, feed_dict={self.x: inputs, self.y: label})
 
     def encode(self, inputs, label):
         """ Embed given data to latent vector. """
-        return self.session.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
+        return self.sess.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
 
     def decode(self, label, z=None, std=0.01, mu=0):
         """ Generate data by sampling from latent space.
@@ -162,4 +158,5 @@ class CVAE (object) :
         Otherwise, z_mu is drawn from prior in latent space.
         """
         z = mu + np.random.randn(self.batch_size, self.nn_architecture["n_z"]) * std if z is None else z
-        return self.session.run(self.x_decoder_mean, feed_dict={self.z: z, self.y: label})
+        return self.sess.run(self.x_decoder_mean, feed_dict={self.z: z, self.y: label})
+

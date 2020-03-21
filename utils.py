@@ -55,7 +55,7 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Fal
     logger.info("train: data size(%i), batch num(%i), batch size(%i)" % (n, n_iter, model.batch_size))
     result = []
     # Initializing the tensor flow variables
-    model.session.run(tf.global_variables_initializer())
+    model.sess.run(tf.global_variables_initializer())
     for _e in range(epoch):
         _result = []
         for _b in range(n_iter):
@@ -66,12 +66,12 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Fal
             if mode in ["conditional", "unsupervised"]:  # conditional unsupervised model
                 feed_val = [model.summary, model.loss, model.reconstr_loss , model.latent_loss, model.train]
                 feed_dict = {model.x: _x, model.y: _y} if mode == "conditional" else {model.x: _x}
-                summary, loss, reconstr_loss , latent_loss, _ = model.session.run(feed_val, feed_dict=feed_dict)
+                summary, loss, reconstr_loss , latent_loss, _ = model.sess.run(feed_val, feed_dict=feed_dict)
                 __result = [loss, reconstr_loss , latent_loss]
             elif mode == "supervised":  # supervised model
                 feed_val = [model.summary, model.loss, model.accuracy, model.train]
                 feed_dict = {model.x: _x, model.y: _y, model.is_training: True}
-                summary, loss, acc, _ = model.session.run(feed_val, feed_dict=feed_dict)
+                summary, loss, acc, _ = model.sess.run(feed_val, feed_dict=feed_dict)
                 __result = [loss, acc]
             else:
                 sys.exit("unknown mode !")
@@ -83,7 +83,7 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Fal
             _x = shape_2d(data.test.images, data.test.num_examples) if input_image else data.test.image
             _y = data.test.labels
             feed_dict = {model.x: _x, model.y: _y, model.is_training: False}
-            loss, acc = model.session.run([model.loss, model.accuracy], feed_dict=feed_dict)
+            loss, acc = model.sess.run([model.loss, model.accuracy], feed_dict=feed_dict)
             _result = np.append(np.mean(_result, 0), [loss, acc])
             logger.info("epoch %i: acc %0.3f, loss %0.3f, train acc %0.3f, train loss %0.3f"
                         % (_e, acc, loss, _result[1], _result[0]))
@@ -94,15 +94,23 @@ def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=Fal
 
         result.append(_result)
         if _e % 50 == 0:
-            model.saver.save(model.session, "%s/progress-%i-model.ckpt" % (save_path, _e))
+            model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
             np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(result),
                      learning_rate=model.learning_rate, epoch=epoch, batch_size=model.batch_size,
                      clip=model.max_grad_norm)
-    model.saver.save(model.session, "%s/model.ckpt" % save_path)
+    model.saver.save(model.sess, "%s/model.ckpt" % save_path)
     np.savez("%s/acc.npz" % save_path, loss=np.array(result), learning_rate=model.learning_rate, epoch=epoch,
              batch_size=model.batch_size, clip=model.max_grad_norm)
 
 
+
+def full_connected(x, weight_shape, initializer):
+    """ fully connected layer
+    - weight_shape: input size, output size
+    """
+    weight = tf.Variable(initializer(shape=weight_shape))
+    bias = tf.Variable(tf.zeros([weight_shape[-1]]), dtype=tf.float32)
+    return tf.add(tf.matmul(x, weight), bias)
 
 
 
