@@ -38,10 +38,19 @@ if __name__ == '__main__':
     opt = dict(nn_architecture=param, batch_size=args.batch_size, learning_rate=args.lr, save_path=save_path,
                max_grad_norm=args.clip)
 
-    #----------Model------------
+    #----------Model training on MNIST------------
+    """
     from CondVAE import CVAE as Model
     _mode, _inp_img = "conditional", False
     opt["label_dim"] = 10
     print(Model.__doc__)
     model = Model(**opt)
     mnist_train(model=model, epoch=args.epoch, save_path=save_path, mode=_mode, input_image=_inp_img)
+    """
+     #----------Model training on Provv celeba------------
+    from CondVAE import CVAE as Model
+    _mode, _inp_img = "conditional", False
+    opt["label_dim"] = 2
+    print(Model.__doc__)
+    model = Model(**opt)
+    celebA_train(model=model, epoch=args.epoch, save_path=save_path, input_image=_inp_img)

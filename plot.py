@@ -198,7 +198,7 @@ if __name__ == '__main__':
     model_instance = Model(load_model="./log/CVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
     mnist, size = mnist_loader()
 
-    fig_path = "./figure/CVAE_%i/" % (args.z_dim)
+    fig_path = "./results/" % (args.z_dim)
     if not os.path.exists(fig_path):
         os.mkdir(fig_path)
 

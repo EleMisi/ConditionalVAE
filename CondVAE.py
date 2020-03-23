@@ -2,8 +2,7 @@ import tensorflow as tf
 import numpy as np 
 from tensorflow.contrib.layers import xavier_initializer_conv2d, variance_scaling_initializer, xavier_initializer
 from loss import reconstruction_loss, latent_loss
-from utils import full_connected
-
+from utils import FC
 
 
 class CVAE (object) :
@@ -73,16 +72,16 @@ class CVAE (object) :
         """Create the Network and define the Loss function and the Optimizer"""
 
         #-----------Conditional input---------
-        self.x = tf.placeholder(tf.float32, shape = [None, self.nn_architecture["input_dim"]], name = "input")
+        self.x = tf.placeholder(tf.float32, shape = [None, self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["image_channels"]], name = "input")
         self.y = tf.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
         _cond_input = tf.concat([self.x, self.y], axis = 1)
-
+        _cond_inpu_dim = self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["image_channels"] + self.label_dim 
         #----------Encoder Network-----------
         # input (1d vector) -> FC x 3 -> latent
         with tf.variable_scope("Encoder"):
             
             _output1 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
-                                          input_shape = (self.nn_architecture["input_dim"] + self.label_dim,),
+                                          input_shape = (_cond_inpu_dim,),
                                           activation = self.activation_fn, 
                                           kernel_initializer = self.initializer)(_cond_input)
             
@@ -92,10 +91,10 @@ class CVAE (object) :
                                           kernel_initializer = self.initializer)(_output1)
 
             # full connect to get "mean" and "sigma"
-            self.z_mean = full_connected(_output2, [self.nn_architecture["hidden_enc_2_dim"],
+            self.z_mean = FC(_output2, [self.nn_architecture["hidden_enc_2_dim"],
                                                   self.nn_architecture["z_dim"]], self.initializer)
             # self.z_mean = tf.where(tf.is_inf(z_mean), 0.0, z_mean)
-            self.z_log_sigma_sq = full_connected(_output2, [self.nn_architecture["hidden_enc_2_dim"],
+            self.z_log_sigma_sq = FC(_output2, [self.nn_architecture["hidden_enc_2_dim"],
                                                           self.nn_architecture["z_dim"]], self.initializer)
 
         #------------Reparametrization---------------
@@ -116,8 +115,8 @@ class CVAE (object) :
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer)(_output1)
             
-            _output = full_connected(_output2, [self.nn_architecture["hidden_dec_2_dim"],
-                                             self.nn_architecture["input_dim"]], self.initializer)
+            _output = FC(_output2, [self.nn_architecture["hidden_dec_2_dim"],
+                                             self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["image_channels"]], self.initializer)
 
             self.x_decoder_mean = tf.nn.sigmoid(_output)
 
