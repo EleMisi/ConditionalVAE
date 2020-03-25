@@ -72,10 +72,10 @@ class CVAE (object) :
         """Create the Network and define the Loss function and the Optimizer"""
 
         #-----------Conditional input---------
-        self.x = tf.placeholder(tf.float32, shape = [None, self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["image_channels"]], name = "input")
+        self.x = tf.placeholder(tf.float32, shape = [None, self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"]], name = "input")
         self.y = tf.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
         _cond_input = tf.concat([self.x, self.y], axis = 1)
-        _cond_inpu_dim = self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["image_channels"] + self.label_dim 
+        _cond_inpu_dim = self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"] + self.label_dim 
         #----------Encoder Network-----------
         # input (1d vector) -> FC x 3 -> latent
         with tf.variable_scope("Encoder"):
@@ -116,7 +116,7 @@ class CVAE (object) :
                                             kernel_initializer = self.initializer)(_output1)
             
             _output = FC(_output2, [self.nn_architecture["hidden_dec_2_dim"],
-                                             self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["image_channels"]], self.initializer)
+                                             self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"]], self.initializer)
 
             self.x_decoder_mean = tf.nn.sigmoid(_output)
 
