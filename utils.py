@@ -18,7 +18,9 @@ def FC(x, weight_shape, initializer):
     bias = tf.Variable(tf.zeros([weight_shape[-1]]), dtype=tf.float32)
     return tf.add(tf.matmul(x, weight), bias)
 
-#-----------------------------
+
+#----------CELEBA DATASET UTILS------------
+
 
 def create_log(name):
     """Logging."""
@@ -36,114 +38,10 @@ def create_log(name):
     logger.addHandler(handler2)
     return logger
 
-#--------MNIST DATASET---------
-
-def mnist_loader():
-    from tensorflow.contrib.learn.python.learn.datasets.mnist import read_data_sets
-    mnist = read_data_sets('MNIST_data', one_hot=True)
-    n_sample = mnist.train.num_examples
-    return mnist, n_sample
 
 
-def shape_2d(_x, batch_size):
-    _x = _x.reshape(batch_size, 28, 28)
-    return np.expand_dims(_x, 3)
-
-
-def mnist_train(model, epoch, save_path="./", mode="supervised", input_image=False):
-    """ Train model based on mini-batch of input data.
-
-    :param model:
-    :param epoch:
-    :param save_path:
-    :param mode: conditional, supervised, unsupervised
-    :param input_image: True if use CNN for top of the model
-    :return:
-    """
-    # load mnist
-    data, n = mnist_loader()
-    n_iter = int(n / model.batch_size) #number of minibatches
-    # logger
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
-    logger = create_log(save_path+"log")
-    logger.info("train: data size(%i), batch num(%i), batch size(%i)" % (n, n_iter, model.batch_size))
-    result = []
-
-    # Initializing the tensor flow variables
-    model.sess.run(tf.global_variables_initializer())
-    
-    #Start training
-    for _e in range(epoch):
-        _result = []
-        for _b in range(n_iter):
-            # train
-            _x, _y = data.train.next_batch(model.batch_size)
-            _x = shape_2d(_x, model.batch_size) if input_image else _x
-
-            
-            feed_val = [model.summary, model.loss, model.reconstr_loss , model.latent_loss, model.train]
-            feed_dict = {model.x: _x, model.y: _y} 
-            summary, loss, reconstr_loss , latent_loss, _ = model.sess.run(feed_val, feed_dict=feed_dict)
-            __result = [loss, reconstr_loss , latent_loss]
-        
-            _result.append(__result)
-            model.writer.add_summary(summary, int(_b + _e * model.batch_size))
-
-        # Validation
-        _result = np.mean(_result, 0)
-        logger.info("epoch %i: loss %0.3f, reconstr. loss %0.3f, latent loss %0.3f"
-                    % (_e, _result[0], _result[1], _result[2]))
-
-        result.append(_result)
-        if _e % 50 == 0:
-            model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
-            np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(result),
-                     learning_rate=model.learning_rate, epoch=epoch, batch_size=model.batch_size,
-                     clip=model.max_grad_norm)
-
-    #Save the model                 
-    model.saver.save(model.sess, "%s/model.ckpt" % save_path)
-    np.savez("%s/acc.npz" % save_path, loss=np.array(result), learning_rate=model.learning_rate, epoch=epoch,
-             batch_size=model.batch_size, clip=model.max_grad_norm)
-
-
-#----------CELEBA DATASET UTILS------------
-
-#Data must be a list of listsr a matrix
-def load_CelebA():
-    """
-    data = np.array([
-           [ ["rosso1"], ["verde1"], ["blu1"] ],
-           [ ["rosso2"], ["verde2"], ["blu2"] ],
-           [ ["rosso3"], ["verde3"], ["blu3"] ],
-           [ ["rosso4"], ["verde4"], ["blu4"] ]
-           ])
-
-    N = 4
-    """ 
-    data = []
-    images = glob.glob("images/*.jpg")
-    for image in images:
-        img = cv2.imread(image)
-        data.append(img)
-
-    return np.array(data), len(data)
-
-def create_batch(data, n_samples, batch_size):
-    assert batch_size % 2 == 0
-    n_batch = int(n_samples / batch_size) 
-    batches = {}
-    _i = 0
-    for _b in range(n_batch):
-        _n = _i + batch_size
-        #print(_i, _n)
-        batches["Batch %i" % _b] = data[_i : _n]        
-        _i = _n
-    return batches, n_batch        
-
-#---ROVVISORIAL----
-def load_todos():
+#---PROVVISORIAL----
+def load_data():
     label = []
     imgs = []
     id_images = []
@@ -155,7 +53,6 @@ def load_todos():
             try:
                 label.append(pickle.load(openfile))
             except EOFError:
-                #print("here1")
                 break
 
     with (open(path_arr, "rb")) as openfile:
@@ -163,7 +60,6 @@ def load_todos():
             try:
                 imgs.append(pickle.load(openfile))
             except EOFError:
-              #print("here2")
               break
       
     for k in imgs[0].keys():
@@ -175,7 +71,7 @@ def prepare_dataset():
     """
     Load the dataset and return a dictionary with each image and its label.
     """
-    label, imgs, id_imgs = load_todos() #Load dataset with labels
+    label, imgs, id_imgs = load_data() #Load dataset with labels
 
     data_label_dict = {}
     for k in id_imgs:
@@ -189,32 +85,6 @@ def prepare_dataset():
       v[1] = [v[1]['Eyeglasses'], v[1]['Blond_Hair']]
 
     return data_label_dict
-
-def prepare_batches_provv(data, n_samples, batch_size):
-
-    """
-    sputa fuori un dizionario con keys i singoli batch 
-    e come items le immagini [0] e le relative labels [1]
-    batches['Batch 0'][9][0] -> decima immagine del primo batch ravellata
-    batches['Batch 0'][9][1] -> decimo vettore di label del primo batch
-    """
-    assert batch_size % 2 == 0
-    n_batch = int(n_samples / batch_size)
-    batches = {}
-    _i = 0
-    imgs = []
-    lbl = []
-    for v in data:
-        imgs.append(v[0])
-        lbl.append(v[1])
-    for _b in range(n_batch):
-        _n = _i + batch_size
-        print(_i, _n)
-        batches["Batch %i" % _b] =[imgs[_i : _n], lbl[_i : _n]]       
-        _i = _n
-    return batches, n_batch   
-
-#-----attempt 3---------------
 
 def data_and_labels(data_label_dict):
     imgs = []
@@ -240,12 +110,7 @@ def next_batch(batch_dim, data, labels):
 
 def celebA_train(model, epoch, save_path="./", input_image=False):
     
-    """
     #Load data
-    data, N = load_CelebA()
-    label = load_label(model.batch_size)
-    batches, n_batch = create_batch(data, N, model.batch_size)
-    """
     dataset_dict = prepare_dataset()
     n_samples = len(dataset_dict)
     imgs, labels = data_and_labels(dataset_dict)
@@ -261,8 +126,7 @@ def celebA_train(model, epoch, save_path="./", input_image=False):
     #Session initialization
     model.sess.run(tf.global_variables_initializer())
 
-    #Train
-    
+    #-----------------Train-----------
     for _e in range(epoch):
         _results = []
         for _b in range(n_batches):

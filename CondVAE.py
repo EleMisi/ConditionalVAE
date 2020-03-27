@@ -1,6 +1,7 @@
-import tensorflow as tf
 import numpy as np 
+import tensorflow as tf
 from tensorflow.contrib.layers import xavier_initializer_conv2d, variance_scaling_initializer, xavier_initializer
+
 from loss import reconstruction_loss, latent_loss
 from utils import FC
 
@@ -31,9 +32,9 @@ class CVAE (object) :
             activation_fn: activation function
             float learning_rate: default 0.001
             int batch_size: batch size of the network [1, dataset_dim]
-            save_path = None, ????????
-            load_model = None, ??????
-            max_grad_norm: maximum norm for the gradients (for controlling the overfitting) ???
+            save_path = None, 
+            load_model = None, 
+            max_grad_norm: maximum norm for the gradients (control the overfitting)
 
         """
 
@@ -148,14 +149,17 @@ class CVAE (object) :
         return self.sess.run(self.x_decoder_mean, feed_dict={self.x: inputs, self.y: label})
 
     def encode(self, inputs, label):
-        """ Embed given data to latent vector. """
+        """ 
+        Input -> latent vector 
+        """
         return self.sess.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
 
     def decode(self, label, z=None, std=0.01, mu=0):
-        """ Generate data by sampling from latent space.
-        If z_mu is not None, data for this point in latent space is generated.
-        Otherwise, z_mu is drawn from prior in latent space.
+        """ 
+        Generate data by sampling from latent space.
+        If z_mu is None, z_mu is drawn from prior in latent space.
+        Otherwise, data for this point in latent space is generated.
         """
-        z = mu + np.random.randn(self.batch_size, self.nn_architecture["n_z"]) * std if z is None else z
+        z = mu + np.random.randn(self.batch_size, self.nn_architecture["z_dim"]) * std if z is None else z
         return self.sess.run(self.x_decoder_mean, feed_dict={self.z: z, self.y: label})
 
