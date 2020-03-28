@@ -1,5 +1,5 @@
 # ConditionalVAE
 
 ------------------
-## Work in progress on Development branch
+Work in progress on *Development* and *Bog* branches
 -----------------
