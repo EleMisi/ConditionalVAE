@@ -1,10 +1,11 @@
 import numpy as np 
 import tensorflow as tf
-from tensorflow.contrib.layers import xavier_initializer_conv2d, variance_scaling_initializer, xavier_initializer
+from tensorflow.keras.initializers import GlorotUniform, VarianceScaling
 
 from loss import reconstruction_loss, latent_loss
 from utils import FC
 
+tf.compat.v1.disable_eager_execution()
 
 class CVAE (object) :
 
@@ -47,46 +48,46 @@ class CVAE (object) :
 
         #---------Layer Initializer---------
         if "relu" in self.activation_fn.__name__:
-            self.initializer = variance_scaling_initializer()
+            self.initializer = VarianceScaling()
         else:
-            self.initializer = xavier_initializer()
+            self.initializer = GlorotUniform()
 
         #--------Network generation---------
         self._create_network()
 
         #---------Summary-----------
-        tf.summary.scalar("loss", self.loss)
+        tf.compat.v1.summary.scalar("loss", self.loss)
 
         #--------Session-------------
-        self.sess = tf.Session(config = tf.ConfigProto(log_device_placement=False))
+        self.sess = tf.compat.v1.Session(config = tf.compat.v1.ConfigProto(log_device_placement=False))
 
         #---------Summary writer for tensor board--------
-        self.summary = tf.summary.merge_all()
+        self.summary = tf.compat.v1.summary.merge_all()
         if save_path:
-            self.writer = tf.summary.FileWriter(save_path, self.sess.graph)
+            self.writer = tf.compat.v1.summary.FileWriter(save_path, self.sess.graph)
         #---------Load model---------
         if load_model:
-            tf.reset_default_graph()
+            tf.compat.v1.reset_default_graph()
             self.saver.restore(self.sess, load_model)
     
     def _create_network(self):
         """Create the Network and define the Loss function and the Optimizer"""
 
         #-----------Conditional input---------
-        self.x = tf.placeholder(tf.float32, shape = [None, self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"]], name = "input")
-        self.y = tf.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
-        _cond_input = tf.concat([self.x, self.y], axis = 1)
+        self.x = tf.compat.v1.placeholder(tf.float32, shape = [None, self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"]], name = "input")
+        self.y = tf.compat.v1.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
+        _cond_input = tf.compat.v1.concat([self.x, self.y], axis = 1)
         _cond_inpu_dim = self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"] + self.label_dim 
         #----------Encoder Network-----------
         # input (1d vector) -> FC x 3 -> latent
-        with tf.variable_scope("Encoder"):
+        with tf.compat.v1.variable_scope("Encoder"):
             
-            _output1 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
+            _output1 = tf.compat.v1.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
                                           input_shape = (_cond_inpu_dim,),
                                           activation = self.activation_fn, 
                                           kernel_initializer = self.initializer)(_cond_input)
             
-            _output2 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_2_dim"],
+            _output2 = tf.compat.v1.keras.layers.Dense(self.nn_architecture["hidden_enc_2_dim"],
                                           input_shape = (self.nn_architecture["hidden_enc_1_dim"],),
                                           activation = self.activation_fn, 
                                           kernel_initializer = self.initializer)(_output1)
@@ -94,24 +95,23 @@ class CVAE (object) :
             # full connect to get "mean" and "sigma"
             self.z_mean = FC(_output2, [self.nn_architecture["hidden_enc_2_dim"],
                                                   self.nn_architecture["z_dim"]], self.initializer)
-            # self.z_mean = tf.where(tf.is_inf(z_mean), 0.0, z_mean)
             self.z_log_sigma_sq = FC(_output2, [self.nn_architecture["hidden_enc_2_dim"],
                                                           self.nn_architecture["z_dim"]], self.initializer)
 
         #------------Reparametrization---------------
-        eps = tf.random_normal((self.batch_size, self.nn_architecture["z_dim"]), mean=0, stddev=1, dtype=tf.float32)
-        self.z = tf.add(self.z_mean, tf.multiply(tf.sqrt(tf.exp(self.z_log_sigma_sq)), eps))
-        _cond_z = tf.concat([self.z, self.y], axis=1)
+        eps = tf.compat.v1.random_normal((self.batch_size, self.nn_architecture["z_dim"]), mean=0, stddev=1, dtype=tf.compat.v1.float32)
+        self.z = tf.compat.v1.add(self.z_mean, tf.compat.v1.multiply(tf.math.sqrt(tf.math.exp(self.z_log_sigma_sq)), eps))
+        _cond_z = tf.compat.v1.concat([self.z, self.y], axis=1)
 
         #-----------Decoder Network-------------
-        with tf.variable_scope("Decoder"):
+        with tf.compat.v1.variable_scope("Decoder"):
 
-            _output1 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_1_dim"], 
+            _output1 = tf.compat.v1.keras.layers.Dense(self.nn_architecture["hidden_dec_1_dim"], 
                                             input_shape = (self.nn_architecture["z_dim"] + self.label_dim,),
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer)(_cond_z)
 
-            _output2 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_2_dim"], 
+            _output2 = tf.compat.v1.keras.layers.Dense(self.nn_architecture["hidden_dec_2_dim"], 
                                             input_shape = (self.nn_architecture["hidden_dec_1_dim"],),
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer)(_output1)
@@ -119,27 +119,27 @@ class CVAE (object) :
             _output = FC(_output2, [self.nn_architecture["hidden_dec_2_dim"],
                                              self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"]], self.initializer)
 
-            self.x_decoder_mean = tf.nn.sigmoid(_output)
+            self.x_decoder_mean = tf.compat.v1.nn.sigmoid(_output)
 
         #---------Loss Function-----------
-        with tf.name_scope('Loss'):
+        with tf.compat.v1.name_scope('Loss'):
 
-            self.reconstr_loss = tf.reduce_mean(reconstruction_loss(original = self.x, 
+            self.reconstr_loss = tf.compat.v1.reduce_mean(reconstruction_loss(original = self.x, 
                                                 reconstruction = self.x_decoder_mean))
-            self.latent_loss = tf.reduce_mean(latent_loss(self.z_mean, self.z_log_sigma_sq))
-            self.loss = tf.where(tf.is_nan(self.reconstr_loss), 0.0, self.reconstr_loss) + tf.where(tf.is_nan(self.latent_loss), 0.0, self.latent_loss)
+            self.latent_loss = tf.compat.v1.reduce_mean(latent_loss(self.z_mean, self.z_log_sigma_sq))
+            self.loss = tf.where(tf.math.is_nan(self.reconstr_loss), 0.0, self.reconstr_loss) + tf.where(tf.math.is_nan(self.latent_loss), 0.0, self.latent_loss)
 
         #-----------Optimizer---------------
-        optimizer = tf.train.AdamOptimizer(self.learning_rate)
+        optimizer = tf.compat.v1.train.AdamOptimizer(self.learning_rate)
         #maximum gradient norm
         if self.max_grad_norm:
-            _var = tf.trainable_variables()
-            grads, _ = tf.clip_by_global_norm(tf.gradients(self.loss, _var), self.max_grad_norm)
+            _var = tf.compat.v1.trainable_variables()
+            grads, _ = tf.compat.v1.clip_by_global_norm(tf.compat.v1.gradients(self.loss, _var), self.max_grad_norm)
             self.train = optimizer.apply_gradients(zip(grads, _var))
         else:
             self.train = optimizer.minimize(self.loss)
         # saver
-        self.saver = tf.train.Saver()
+        self.saver = tf.compat.v1.train.Saver()
 
     #--------Reconstruct, Encode and Decode with the Network----------
     def reconstruct(self, inputs, label):
@@ -154,10 +154,10 @@ class CVAE (object) :
         """
         return self.sess.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
 
-    def decode(self, label, z=None, std=0.01, mu=0):
+    def decode(self, label, z = None, std=0.01, mu=0):
         """ 
         Generate data by sampling from latent space.
-        If z_mu is None, z_mu is drawn from prior in latent space.
+        If z is None, z is drawn from prior in latent space.
         Otherwise, data for this point in latent space is generated.
         """
         z = mu + np.random.randn(self.batch_size, self.nn_architecture["z_dim"]) * std if z is None else z

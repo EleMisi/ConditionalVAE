@@ -1,8 +1,8 @@
 {
-    "hidden_enc_1_dim": 500,
-    "hidden_enc_2_dim": 500,
-    "hidden_dec_1_dim": 500,
-    "hidden_dec_2_dim": 500,
+    "hidden_enc_1_dim": 32,
+    "hidden_enc_2_dim": 32,
+    "hidden_dec_1_dim": 32,
+    "hidden_dec_2_dim": 32,
     "image_size": 64,
     "n_channels": 3,
     "z_dim": 20

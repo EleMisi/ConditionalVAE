@@ -19,9 +19,6 @@ def FC(x, weight_shape, initializer):
     return tf.add(tf.matmul(x, weight), bias)
 
 
-#----------CELEBA DATASET UTILS------------
-
-
 def create_log(name):
     """Logging."""
     if os.path.exists(name):
@@ -38,7 +35,7 @@ def create_log(name):
     logger.addHandler(handler2)
     return logger
 
-
+#----------CELEBA DATASET UTILS------------
 
 #---PROVVISORIAL----
 def load_data():
@@ -100,6 +97,7 @@ def next_batch(batch_dim, data, labels):
     '''
     idx = np.arange(0 , len(data))
     np.random.shuffle(idx)
+    print("SHUFFLED IDX", idx)
     idx = idx[:batch_dim]
     data_shuffle = [data[ i] for i in idx]
     labels_shuffle = [labels[ i] for i in idx]
@@ -110,7 +108,8 @@ def next_batch(batch_dim, data, labels):
 
 def celebA_train(model, epoch, save_path="./", input_image=False):
     
-    #Load data
+    np.random.seed(42)
+    # Load data
     dataset_dict = prepare_dataset()
     n_samples = len(dataset_dict)
     imgs, labels = data_and_labels(dataset_dict)
@@ -123,10 +122,11 @@ def celebA_train(model, epoch, save_path="./", input_image=False):
     logger.info("train: data size(%i), batch num(%i), batch size(%i)" % (n_samples, n_batches, model.batch_size))
     results = []
 
-    #Session initialization
-    model.sess.run(tf.global_variables_initializer())
+    # Session initialization
+    model.sess.run(tf.compat.v1.global_variables_initializer())
 
-    #-----------------Train-----------
+    #-----------------Train-----------------
+
     for _e in range(epoch):
         _results = []
         for _b in range(n_batches):
@@ -140,13 +140,14 @@ def celebA_train(model, epoch, save_path="./", input_image=False):
             model.writer.add_summary(summary, int(_b + _e * model.batch_size))
             _b += 1
 
-        # Validation
+        #---------------Validation--------------
+
         _results = np.mean(_results, 0)
         logger.info("epoch %i: loss %0.3f, reconstr. loss %0.3f, latent loss %0.3f"
                     % (_e, _results[0], _results[1], _results[2]))
 
         results.append(_results)
-        if _e % 50 == 0:
+        if (_e + 1) % 10 == 0:
             model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
             np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(results),
                      learning_rate=model.learning_rate, epoch=epoch, batch_size=model.batch_size,
