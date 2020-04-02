@@ -97,7 +97,7 @@ def next_batch(batch_dim, data, labels):
     '''
     idx = np.arange(0 , len(data))
     np.random.shuffle(idx)
-    print("SHUFFLED IDX", idx)
+
     idx = idx[:batch_dim]
     data_shuffle = [data[ i] for i in idx]
     labels_shuffle = [labels[ i] for i in idx]

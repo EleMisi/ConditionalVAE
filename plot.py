@@ -28,14 +28,14 @@ def generate_image_random(model, feeder, save_path=None, target_attr=0, std=0.01
         # Latent vector generation
         if target_attr == 1:
             _code = []
-            for i in range(500):
+            for i in range(10):
                 _x, _y = next_batch(model.batch_size, feeder[0],feeder[1])
                 __code = model.encode(_x, _y).tolist()
                 for __x, __y, _c in zip(_x, _y, __code):
                     if np.argmax(__y) == target_attr:
                         _code.append(_c)
             
-            # One-hot encoder for attributes
+            # Binary vector of attributes
             attr_vect = np.zeros(model.label_dim)
             attr_vect[target_attr] = 1
             _len = model.batch_size
@@ -81,7 +81,7 @@ def generate_image_mean(model, feeder, save_path=None, input_image=False):
     # Latent vector generation
     _code = {x : [] for x in range(model.label_dim)}
 
-    for i in range(500):
+    for i in range(10):
         _x, _y = next_batch(model.batch_size, feeder[0], feeder[1])
         __code = model.encode(_x, _y).tolist()
         for __x, __y, _c in zip(_x, _y, __code):
@@ -90,7 +90,7 @@ def generate_image_mean(model, feeder, save_path=None, input_image=False):
     _temp = np.vstack([np.mean(_code[_a], 0) for _a in range(model.label_dim)])
     z = np.tile(_temp, [int(model.batch_size / model.label_dim), 1])
 
-    # One-hot encoder for attributes
+    # Binary vector of attributes
     attr_vect = np.eye(model.label_dim)[[i for i in range(model.label_dim)]]
     true_label = np.tile(attr_vect, [int(model.batch_size / model.label_dim), 1])
 
