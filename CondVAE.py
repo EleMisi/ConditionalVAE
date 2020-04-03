@@ -3,7 +3,7 @@ import tensorflow as tf
 from tensorflow.keras.initializers import GlorotUniform, VarianceScaling
 
 from loss import reconstruction_loss, latent_loss
-from utils import FC
+from utils import fully_conn
 
 tf.compat.v1.disable_eager_execution()
 
@@ -79,7 +79,7 @@ class CVAE (object) :
         _cond_input = tf.compat.v1.concat([self.x, self.y], axis = 1)
         _cond_inpu_dim = self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"] + self.label_dim 
         #----------Encoder Network-----------
-        # input (1d vector) -> FC x 3 -> latent
+        # input (1d vector) -> fully_conn x 3 -> latent
         with tf.compat.v1.variable_scope("Encoder"):
             
             _output1 = tf.compat.v1.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
@@ -93,9 +93,9 @@ class CVAE (object) :
                                           kernel_initializer = self.initializer)(_output1)
 
             # full connect to get "mean" and "sigma"
-            self.z_mean = FC(_output2, [self.nn_architecture["hidden_enc_2_dim"],
+            self.z_mean = fully_conn(_output2, [self.nn_architecture["hidden_enc_2_dim"],
                                                   self.nn_architecture["z_dim"]], self.initializer)
-            self.z_log_sigma_sq = FC(_output2, [self.nn_architecture["hidden_enc_2_dim"],
+            self.z_log_sigma_sq = fully_conn(_output2, [self.nn_architecture["hidden_enc_2_dim"],
                                                           self.nn_architecture["z_dim"]], self.initializer)
 
         #------------Reparametrization---------------
@@ -116,7 +116,7 @@ class CVAE (object) :
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer)(_output1)
             
-            _output = FC(_output2, [self.nn_architecture["hidden_dec_2_dim"],
+            _output = fully_conn(_output2, [self.nn_architecture["hidden_dec_2_dim"],
                                              self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"]], self.initializer)
 
             self.x_decoder_mean = tf.compat.v1.nn.sigmoid(_output)

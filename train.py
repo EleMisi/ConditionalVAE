@@ -2,15 +2,10 @@ import argparse
 import os
 import sys
 import json
-from utils import celebA_train
 
-
-def get_parameter(path, z_dim):
-    with open(path) as f:
-        p = json.load(f)
-    if z_dim:
-        p["z_dim"] = z_dim
-    return p
+from celeba import CelebA
+from CondVAE import CVAE 
+from utils import celebA_train, get_parameter
 
 
 if __name__ == '__main__':
@@ -39,10 +34,16 @@ if __name__ == '__main__':
     opt = dict(nn_architecture=param, batch_size=args.batch_size, learning_rate=args.lr, save_path=save_path,
                max_grad_norm=args.clip)
 
-     #----------Model training on Provv celeba------------
-    from CondVAE import CVAE as Model
-    _mode, _inp_img = "conditional", False
-    opt["label_dim"] = 2
-    print(Model.__doc__)
-    model = Model(**opt)
-    celebA_train(model=model, epoch=args.epoch, save_path=save_path, input_image=_inp_img)
+    
+    #--------------Prepare Dataset-----------------
+
+    dataset = CelebA(train_dim=0.80)
+
+    #----------Model training on CelebA------------
+    opt["label_dim"] = dataset.n_attr    
+    model = CVAE(**opt)
+    celebA_train(model, dataset, epoch=args.epoch, save_path=save_path)
+
+    #----------Store test set------------
+    
+    #To develop
