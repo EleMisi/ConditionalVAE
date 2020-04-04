@@ -24,6 +24,8 @@ if __name__ == '__main__':
                         choices=None, help='Learning rate. [default: 0.005]', metavar=None)
     parser.add_argument('-c', '--clip', action='store', nargs='?', const=None, default=None, type=float,
                         choices=None, help='Gradient clipping. [default: None]', metavar=None)
+    parser.add_argument('-p', '--plot', action='store', nargs='?', const=None, default=False, type=bool,
+                        choices=None, help='Plot after train. [default: False]', metavar=None)               
     args = parser.parse_args()
 
     print("\n Start train the CVAE \n")
@@ -44,6 +46,19 @@ if __name__ == '__main__':
     model = CVAE(**opt)
     celebA_train(model, dataset, epoch=args.epoch, save_path=save_path)
 
-    #----------Store test set------------
-    
-    #To develop
+    #----------Save train and test set information for plot------------
+    if args.plot:
+        test_data = {
+            'train_dim' : dataset.train_dim,
+            'dataset_dim' : dataset.dataset_dim,
+            'n_attr' : dataset.n_attr,
+            'test_labels' : dataset.test_labels,
+            'test_set' : dataset.test_set,
+            'attr' : dataset.attr
+         }
+
+        # Serializing json  
+        json_object = json.dumps(test_data, indent = 4) 
+  
+        with open("test_data.json", "w") as outfile: 
+            outfile.write(json_object)

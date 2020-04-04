@@ -13,13 +13,13 @@ from celeba import CelebA
 
 #---Fully connected layer with no activation------
 
-def fully_conn(x, weight_shape, initializer):
-    """ Fully connected layer.
-    - weight_shape: input size, output size
-    - initializer: tf function
+def dense_layer(x, input_size, output_size, initializer = tf.nn.relu):
+    """ 
+    Fully connected layer.
     """
-    weight = tf.Variable(initializer(shape=weight_shape))
-    bias = tf.Variable(tf.zeros([weight_shape[-1]]), dtype=tf.float32)
+    shape = (input_size, output_size)
+    weight = tf.Variable(initializer(shape=shape))
+    bias = tf.Variable(tf.zeros([output_size]), dtype=tf.float32)
     return tf.add(tf.matmul(x, weight), bias)
 
 #-----------Get paramters---------
@@ -49,6 +49,23 @@ def create_log(name):
     log.addHandler(handler2)
     return log
 
+#-------Next Batch for reconstruction---------
+def next_batch(batch_dim, data, labels):
+    """
+    Create the next batch with a given dimension.
+    -data and labels are lists 
+    """
+    #Shuffle 
+    idx = np.arange(0 , len(data))
+    np.random.shuffle(idx)
+    shuffled_data = [data[i] for i in idx]
+    shuffled_labels = [labels[i] for i in idx]
+
+    #Create batch
+    batch_data = shuffled_data[:batch_dim]
+    batch_labels = shuffled_labels[:batch_dim]
+
+    return np.asarray(batch_data), np.asarray(batch_labels)
 
 #------------------------------------
 #------------CelebA Train------------

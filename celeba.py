@@ -6,7 +6,7 @@ class CelebA():
     def __init__(self, train_dim):
         self.train_dim = train_dim
         self.data, self.labels, self.attr = self.load_dataset()
-        self.N = len(self.data)
+        self.dataset_dim = len(self.data)
         self.n_attr = len(self.attr)
         self.train_set, self.test_set, self.train_labels, self.test_labels = self.split()
 
@@ -14,7 +14,7 @@ class CelebA():
         """Return:
             -data: OrderedDict {img_id : img}
             -labels: OrderedDict {img_id : attributes}
-            -attr: list [attribute names] 
+            -attr: dict [attribute names : idx] 
             """
         pass
    
@@ -22,13 +22,14 @@ class CelebA():
         """
         Prepare the train set and the test set, according to 
         train_dimension.
+        The sets are returned as lists
         """
         data = list(self.data.values())
         labels = list(self.labels.values())
         #Shuffle 
         shuffled_data, shuffled_labels = self.shuffle(data, labels)
         #Split 
-        n_train = self.N * self.train_dim
+        n_train = self.dataset_dim * self.train_dim
         train_set = shuffled_data[:n_train]
         train_labels = shuffled_labels[:n_train]
         test_set = shuffled_data[n_train:]
