@@ -5,7 +5,7 @@ import json
 
 from celeba import CelebA
 from CondVAE import CVAE 
-from utils import celebA_train, get_parameter
+from utils import get_parameter, save_VarToSave
 
 
 if __name__ == '__main__':
@@ -22,6 +22,8 @@ if __name__ == '__main__':
                         choices=None, help='Epoch number. [default: 150]', metavar=None)
     parser.add_argument('-l', '--lr', action='store', nargs='?', const=None, default=0.005, type=float,
                         choices=None, help='Learning rate. [default: 0.005]', metavar=None)
+    parser.add_argument('-d', '--train_dim', action='store', nargs='?', const=None, default=0.8, type=float,
+                        choices=None, help='Train and test set splitting parameter. [default: 0.8]', metavar=None)
     parser.add_argument('-c', '--clip', action='store', nargs='?', const=None, default=None, type=float,
                         choices=None, help='Gradient clipping. [default: None]', metavar=None)
     parser.add_argument('-p', '--plot', action='store', nargs='?', const=None, default=False, type=bool,
@@ -38,27 +40,24 @@ if __name__ == '__main__':
 
     
     #--------------Prepare Dataset-----------------
-
-    dataset = CelebA(train_dim=0.80)
+    dataset = CelebA(train_dim = args.train_dim)
 
     #----------Model training on CelebA------------
     opt["label_dim"] = dataset.n_attr    
     model = CVAE(**opt)
-    celebA_train(model, dataset, epoch=args.epoch, save_path=save_path)
+    dataset.celebA_train(model, epoch=args.epoch, save_path=save_path)
 
     #----------Save train and test set information for plot------------
     if args.plot:
         test_data = {
             'train_dim' : dataset.train_dim,
-            'dataset_dim' : dataset.dataset_dim,
             'n_attr' : dataset.n_attr,
             'test_labels' : dataset.test_labels,
-            'test_set' : dataset.test_set,
-            'attr' : dataset.attr
+            'attr' : dataset.attr,
+            'batch_dim' : args.batch_size
          }
 
-        # Serializing json  
-        json_object = json.dumps(test_data, indent = 4) 
-  
-        with open("test_data.json", "w") as outfile: 
-            outfile.write(json_object)
+        file_path = "./test_data"
+        save_VarToSave(file_path, test_data)
+
+        print("Test labels successfully saved.")

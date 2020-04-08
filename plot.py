@@ -10,26 +10,26 @@ import tensorflow as tf
 
 from celeba import CelebA
 from CondVAE import CVAE
-from utils import get_parameter, next_batch
+from utils import read_VarToSave, batch_generator, get_parameter
 
 
 
-def generate_image_random(model, dataset, name = None, target_attr = None, std=0.01):
+def generate_image_random(model, test_data, name = None, target_attr = None, std=0.01):
     """
     Generate and plot 10 images with a given attribute (if given).
     - list target_attr : list of desidered attributes [default None]
     """
     #Vector of specified attributes
     if target_attr:       
-        attr_vect = np.zeros(dataset["n_attr"])
+        attr_vect = np.zeros(test_data["n_attr"])
         for attr in target_attr:
-            attr_vect[dataset["attr"][attr]] = 1
-        name = name + "Attr"
+            attr_vect[attr] = 1
+        name = name + "Attributes"
         print("Generation of 10 images with attributes: ", target_attr )
 
     #Vector of random attributes
     else:        
-        attr_vect = np.random.choice([0, 1], size=(dataset["n_attr"],), p=[2./3, 1./3])
+        attr_vect = np.random.choice([0, 1], size=(test_data["n_attr"],), p=[2./3, 1./3])
         name = name + "_noAttr"
         print("Generation of 10 images with random attributes.")
 
@@ -40,11 +40,12 @@ def generate_image_random(model, dataset, name = None, target_attr = None, std=0
     imshow_grid(generated, shape=[2, 5], name = name, save = True)
 
 
-def reconstruct(model, dataset, save_path=None):
+def reconstruct(model, test_data, save_path=None):
     """
     Reconstruct and plot 5 input images.
     """
-    _x, _y = next_batch(model.batch_size, dataset["test_set"], dataset["test_labels"])
+    batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'])
+    _x, _y = next(batch_gen)
     reconstruction = model.reconstruct(_x, _y)
 
     #-----------Plot----------------
@@ -61,6 +62,8 @@ def reconstruct(model, dataset, save_path=None):
     if save_path:
         plt.savefig(save_path + "reconstruction.png", bbox_inches="tight")
         plt.clf()
+
+    print("Reconstruction of 5 images from the test set.")
 
 def imshow_grid(imgs, shape=[2, 5], name='default', save=False):
     """Plot images in a grid of a given shape."""
@@ -99,14 +102,13 @@ if __name__ == '__main__':
     pr = "progress-%s-" % args.progress if args.progress else ""
     param = get_parameter("./parameters.json", args.z_dim)
 
-    # Read test_data 
-    with open('test_data.json', 'r') as openfile: 
-        dataset = json.load(openfile) 
+    #--------- Read test_data.pickle ------------
+    test_data = read_VarToSave("./test_data")
 
-    # Set the model
+    #----------Set the model------------------
     acc = np.load("./log/CVAE_%i/%sacc.npz" % (args.z_dim, pr))
     opt = dict(nn_architecture=param, batch_size=acc["batch_size"])
-    opt["label_dim"] = dataset["n_attr"] 
+    opt["label_dim"] = test_data["n_attr"]
     model = CVAE(load_model="./log/CVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
     
     # Save path
@@ -118,27 +120,23 @@ if __name__ == '__main__':
 
     # Reconstruction
     if args.plot_type is None or args.plot_type == "reconstr":
-        reconstruct(model, dataset, save_path=folder) 
+        reconstruct(model, test_data, save_path=folder) 
     
     # Generation 
     if args.plot_type is None or args.plot_type == "gen":
         target_attr = None
         if args.target :
-            try:
-                n = input("Number of desired attributes?", "(type help for instructions)", sep = '\n')
-                if n == "help":
-                    print("The attributes must insert as a list of integers: 1 3 4 5 3","Here is encoding:", sep = '\n')
-                    for k, v in dataset['attr'].items():
-                        print(k, "-->", v)
-                    n = int(input("Number of desired attributes?"))
-                else:
-                    n = int(n)
+            n = input("Number of desired attributes? \n (type help for instructions)\n")
+            if n == "help":
+                print("The attributes must be insert as a list of integers: 1 3 15 35","Here is the encoding:", sep = '\n')
+                for a, i in zip(test_data['attr'], range(test_data['n_attr'])):
+                    print(a, "-->", i)
+                n = int(input("Number of desired attributes?\n"))
+            else:
+                n = int(n)
 
-                target_attr = list(map(int,input("\nEnter the desired attributes: ").strip().split()))[:n] 
+            target_attr = list(map(int,input("\nEnter the desired attributes:\n").strip().split()))[:n] 
 
-            except TypeError:
-                print("Invalid input!")
-        
-        generate_image_random(model, dataset, name = folder + "random_generation", target_attr = target_attr, std=args.std)
+        generate_image_random(model, test_data, name = folder + "random_generation", target_attr = target_attr, std=args.std)
 
 

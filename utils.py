@@ -1,18 +1,103 @@
-import logging
-import os
+from glob import glob
 import json
-
-import cv2
-import pickle
+import logging
 import numpy as np
-import tensorflow as tf
+import os
+import pickle
+from PIL import Image
 import sys
+import tensorflow as tf
 
-from celeba import CelebA
+
+#------------------------------------------------
+#------Utils to save and read pickle files-------
+#------------------------------------------------
+
+def save_VarToSave(file_name, varToSave):
+    """
+    Save varToSave on file_name.pickle
+    """
+    with open((file_name+'.pickle'), 'wb') as openfile:
+        print(type(varToSave))
+        pickle.dump(varToSave, openfile)
 
 
+def read_VarToSave(file_name):
+    """
+    Read file_name.pickle and return its content
+    """
+    with (open((file_name+'.pickle'), "rb")) as openfile:
+        while True:
+            try:
+                objects=pickle.load(openfile)
+            except EOFError:
+                break
+    return objects
+
+
+#-----------------------------------------------
+#---------Utils for Reconstruction Plot---------
+#-----------------------------------------------
+
+
+def batch_generator(batch_dim, test_labels):
+    """
+    Batch generator using the label OrderedDict
+    """
+
+    while True:
+        batch_imgs = []
+        labels = []
+        for label in (test_labels):
+            labels.append(label)
+            if len(labels) == batch_dim:
+                batch_imgs = create_image_dataset(labels)
+                batch_labels = [x[1] for x in labels]
+                yield (np.asarray(batch_imgs), np.asarray(batch_labels))
+                batch_imgs = []
+                labels = []
+                batch_labels = []
+        if batch_imgs:
+            yield (np.asarray(batch_imgs), np.asarray(batch_labels))
+
+def get_image(image_path, img_size = 128, img_resize = 64, x = 25, y = 45):
+    """
+    Return an image as a flattened normalized numpy array (dim 64*64*3)
+    """
+    mode='RGB' 
+    image = Image.open(image_path)
+    # Crop 
+    image = image.crop([x, y, x + img_size, y+img_size])
+    # Resize
+    image = image.resize([img_resize, img_resize], Image.BILINEAR)
+    # Normalization
+    img = np.array(image.convert(mode)).astype('float32')
+    img = img.ravel()
+    img /= 255.
+
+    return np.array(img)
+
+
+def create_image_dataset(labels):
+    """
+    Return an List with the images corresponding to the given labels.
+    The images are normalized and returned as a raveled array.
+    """
+    imgs = []
+    images_dataset = glob('/input/CelebA/img_align_celeba/img_align_celeba/*.jpg')
+    imgs_id = [item[0] for item in labels]
+
+    for i in images_dataset:
+        if os.path.split(i)[1] in imgs_id:
+            imgs.append(get_image(image_path = i))
+
+    return imgs
+
+#---------------------------------------------------------------------------
+
+#-------------------------------------------------
 #---Fully connected layer with no activation------
-
+#-------------------------------------------------
 def dense_layer(x, input_size, output_size, initializer = tf.nn.relu):
     """ 
     Fully connected layer.
@@ -22,7 +107,10 @@ def dense_layer(x, input_size, output_size, initializer = tf.nn.relu):
     bias = tf.Variable(tf.zeros([output_size]), dtype=tf.float32)
     return tf.add(tf.matmul(x, weight), bias)
 
-#-----------Get paramters---------
+#-------------------------------------------
+#--------parameters.json file reader--------
+#-------------------------------------------
+
 def get_parameter(path, z_dim):
     with open(path) as f:
         p = json.load(f)
@@ -30,9 +118,13 @@ def get_parameter(path, z_dim):
         p["z_dim"] = z_dim
     return p
 
-#---------Log util--------------
+
+#--------------------------------------------
+#---------Utils for celeba_train-------------
+#--------------------------------------------
+
 def create_log(name):
-    """Logging."""
+    """Log file creator."""
     if os.path.exists(name):
         os.remove(name)
 
@@ -66,58 +158,4 @@ def next_batch(batch_dim, data, labels):
     batch_labels = shuffled_labels[:batch_dim]
 
     return np.asarray(batch_data), np.asarray(batch_labels)
-
-#------------------------------------
-#------------CelebA Train------------
-#------------------------------------
-
-
-def celebA_train(model, dataset, epoch, save_path="./"):
-
-    n_train = len(dataset.train_set)
-    n_batches = int(n_train / model.batch_size)
-
-    # Log
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
-    log = create_log(save_path+"Log")
-    log.info("Training set dimension(%i) batch num(%i), batch size(%i)" % (n_train, n_batches, model.batch_size))
-    results = []
-
-    # Session initialization
-    model.sess.run(tf.compat.v1.global_variables_initializer())
-
-    #-----------------Train-----------------
-
-    for _e in range(epoch):
-        _results = []
-        for _b in range(n_batches):
-            _x, _y = dataset.next_batch(model.batch_size, dataset.train_set, dataset.train_labels)
-            feed_val = [model.summary, model.loss, model.reconstr_loss , model.latent_loss, model.train]
-            feed_dict = {model.x: _x, model.y: _y} 
-            summary, loss, reconstr_loss , latent_loss, _ = model.sess.run(feed_val, feed_dict=feed_dict)
-            __result = [loss, reconstr_loss , latent_loss]
-        
-            _results.append(__result)
-            model.writer.add_summary(summary, int(_b + _e * model.batch_size))
-            _b += 1
-
-        #---------------Validation--------------
-
-        _results = np.mean(_results, 0)
-        log.info("epoch %i: loss %0.3f, reconstr. loss %0.3f, latent loss %0.3f"
-                    % (_e, _results[0], _results[1], _results[2]))    
-        results.append(_results)
-
-        #----------Save progress every 5 epochs----------
-        if (_e + 1) % 5 == 0:
-            model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
-            np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(results),
-                     learning_rate=model.learning_rate, epoch=epoch, batch_size=model.batch_size,
-                     clip=model.max_grad_norm)
-
-    #------------Save the final model--------------                 
-    model.saver.save(model.sess, "%s/model.ckpt" % save_path)
-    np.savez("%s/acc.npz" % save_path, loss=np.array(results), learning_rate=model.learning_rate, epoch=epoch,
-             batch_size=model.batch_size, clip=model.max_grad_norm)
 

@@ -102,7 +102,7 @@ class CVAE (object) :
             if self.dropout:
                 e_layer2 = tf.nn.dropout(e_layer2, rate = self.dropout)
 
-            # dense layer to get "mean" and "sigma"
+            # dense layer to get mean and log(std) of the prior
             self.z_mean = dense_layer(e_layer2, self.nn_architecture["hidden_enc_2_dim"], self.nn_architecture["z_dim"], self.initializer)
             self.z_log_sigma_sq = dense_layer(e_layer2, self.nn_architecture["hidden_enc_2_dim"], self.nn_architecture["z_dim"], self.initializer)
 
@@ -129,7 +129,7 @@ class CVAE (object) :
             if self.dropout:
                 d_layer2 = tf.nn.dropout(d_layer2, rate = self.dropout)
 
-            output = dense_layer(d_layer2, self.nn_architecture["hidden_dec_2_dim"], self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"], self.initializer)
+            output = dense_layer(d_layer2, self.nn_architecture["hidden_dec_2_dim"], self.nn_architecture["image_size"] * self.nn_architecture["image_size"] * self.nn_architecture["n_channels"], self.initializer)
 
             self.x_decoder_mean = tf.nn.sigmoid(output)
 
