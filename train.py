@@ -22,8 +22,10 @@ if __name__ == '__main__':
                         choices=None, help='Epoch number. [default: 150]', metavar=None)
     parser.add_argument('-l', '--lr', action='store', nargs='?', const=None, default=0.005, type=float,
                         choices=None, help='Learning rate. [default: 0.005]', metavar=None)
-    parser.add_argument('-d', '--train_dim', action='store', nargs='?', const=None, default=0.8, type=float,
-                        choices=None, help='Train and test set splitting parameter. [default: 0.8]', metavar=None)
+    parser.add_argument('-td', '--train_dim', action='store', nargs='?', const=None, default=0.8, type=float,
+                        choices=None, help=' training set dimension wrt the whole dataset. [default: 0.8]', metavar=None)
+    parser.add_argument('-d', '--dropout', action='store', nargs='?', const=None, default=0, type=float,
+                        choices=None, help='Dropout parameter. [default: 0]', metavar=None)
     parser.add_argument('-c', '--clip', action='store', nargs='?', const=None, default=None, type=float,
                         choices=None, help='Gradient clipping. [default: None]', metavar=None)
     parser.add_argument('-p', '--plot', action='store', nargs='?', const=None, default=False, type=bool,
@@ -36,7 +38,7 @@ if __name__ == '__main__':
     save_path = "./log/CVAE_%i/" % (args.z_dim)
     param = get_parameter("./parameters.json", args.z_dim)
     opt = dict(nn_architecture=param, batch_size=args.batch_size, learning_rate=args.lr, save_path=save_path,
-               max_grad_norm=args.clip)
+               max_grad_norm=args.clip, dropout = args.dropout)
 
     
     #--------------Prepare Dataset-----------------
