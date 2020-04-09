@@ -40,6 +40,7 @@ class CVAE (object) :
             string save_path = None, 
             string load_model = None, 
             max_grad_norm: maximum norm for the gradients [default 1]
+            dropout: dropout regularization parameter [deafult 0]
 
         """
 
@@ -85,9 +86,10 @@ class CVAE (object) :
         _cond_input = tf.compat.v1.concat([self.x, self.y], axis = 1)
         _cond_inpu_dim = self.nn_architecture["image_size"] *  self.nn_architecture["image_size"] * self.nn_architecture["n_channels"] + self.label_dim 
         #----------Encoder Network-----------
-        # input (1d vector) -> dense_layer x 3 -> latent
+        
         with tf.compat.v1.variable_scope("Encoder"):
             
+            # 1st hidden layer
             e_layer1 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
                                           input_shape = (_cond_inpu_dim,),
                                           activation = self.activation_fn, 
@@ -95,16 +97,35 @@ class CVAE (object) :
             if self.dropout:
                 e_layer1 = tf.nn.dropout(e_layer1, rate = self.dropout)
 
+            # 2nd hidden layer      
             e_layer2 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_2_dim"],
                                           input_shape = (self.nn_architecture["hidden_enc_1_dim"],),
                                           activation = self.activation_fn, 
                                           kernel_initializer = self.initializer)(e_layer1)
             if self.dropout:
                 e_layer2 = tf.nn.dropout(e_layer2, rate = self.dropout)
+            
+            # 3rd hidden layer
+            e_layer3 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_3_dim"],
+                            input_shape = (self.nn_architecture["hidden_enc_2_dim"],),
+                            activation = self.activation_fn, 
+                            kernel_initializer = self.initializer)(e_layer2)
+            if self.dropout:
+                e_layer3 = tf.nn.dropout(e_layer3, rate = self.dropout)
 
-            # dense layer to get mean and log(std) of the prior
-            self.z_mean = dense_layer(e_layer2, self.nn_architecture["hidden_enc_2_dim"], self.nn_architecture["z_dim"], self.initializer)
-            self.z_log_sigma_sq = dense_layer(e_layer2, self.nn_architecture["hidden_enc_2_dim"], self.nn_architecture["z_dim"], self.initializer)
+"""
+            # 4th hidden layer
+            e_layer4 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_4_dim"],
+                input_shape = (self.nn_architecture["hidden_enc_3_dim"],),
+                activation = self.activation_fn, 
+                kernel_initializer = self.initializer)(e_layer3)
+
+            if self.dropout:
+                e_layer4 = tf.nn.dropout(e_layer4, rate = self.dropout)
+            """
+            # Dense layer to get mean and log(std) of the prior
+            self.z_mean = dense_layer(e_layer3, self.nn_architecture["hidden_enc_3_dim"], self.nn_architecture["z_dim"], self.initializer)
+            self.z_log_sigma_sq = dense_layer(e_layer3, self.nn_architecture["hidden_enc_3_dim"], self.nn_architecture["z_dim"], self.initializer)
 
         #------------Reparametrization---------------
         eps = tf.compat.v1.random_normal((self.batch_size, self.nn_architecture["z_dim"]), mean=0, stddev=1, dtype=tf.compat.v1.float32)
@@ -114,6 +135,7 @@ class CVAE (object) :
         #-----------Decoder Network-------------
         with tf.compat.v1.variable_scope("Decoder"):
 
+            # 1st hidden layer
             d_layer1 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_1_dim"], 
                                             input_shape = (self.nn_architecture["z_dim"] + self.label_dim,),
                                             activation = self.activation_fn, 
@@ -122,6 +144,7 @@ class CVAE (object) :
             if self.dropout:
                 d_layer1 = tf.nn.dropout(d_layer1, rate = self.dropout)
 
+            # 2nd hidden layer
             d_layer2 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_2_dim"], 
                                             input_shape = (self.nn_architecture["hidden_dec_1_dim"],),
                                             activation = self.activation_fn, 
@@ -129,7 +152,25 @@ class CVAE (object) :
             if self.dropout:
                 d_layer2 = tf.nn.dropout(d_layer2, rate = self.dropout)
 
-            output = dense_layer(d_layer2, self.nn_architecture["hidden_dec_2_dim"], self.nn_architecture["image_size"] * self.nn_architecture["image_size"] * self.nn_architecture["n_channels"], self.initializer)
+            # 3rd hidden layer
+            d_layer3 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_3_dim"], 
+                                            input_shape = (self.nn_architecture["hidden_dec_2_dim"],),
+                                            activation = self.activation_fn, 
+                                            kernel_initializer = self.initializer)(d_layer2)
+            if self.dropout:
+                d_layer3 = tf.nn.dropout(d_layer3, rate = self.dropout)
+
+			"""
+            # 4th hidden layer
+            d_layer4 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_4_dim"], 
+                                            input_shape = (self.nn_architecture["hidden_dec_3_dim"],),
+                                            activation = self.activation_fn, 
+                                            kernel_initializer = self.initializer)(d_layer3)
+            if self.dropout:
+                d_layer4 = tf.nn.dropout(d_layer4, rate = self.dropout)
+            """
+            # Output layer
+            output = dense_layer(d_layer3, self.nn_architecture["hidden_dec_3_dim"], self.nn_architecture["image_size"] * self.nn_architecture["image_size"] * self.nn_architecture["n_channels"], self.initializer)
 
             self.x_decoder_mean = tf.nn.sigmoid(output)
 

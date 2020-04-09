@@ -192,13 +192,13 @@ class CelebA():
                 _results.append(__result)
                 model.writer.add_summary(summary, int(_b + _e * model.batch_size))
                 _b += 1
-                print(_b)
+                #print(_b)
                 if _b == n_batches:
                     break
 
             #---------------Validation--------------
             _results = np.mean(_results, 0)
-            log.info("epoch %i: loss %0.3f, reconstr. loss %0.3f, latent loss %0.3f"
+            log.info("epoch %i: loss %0.3f, reconstr loss %0.3f, latent loss %0.3f"
                         % (_e, _results[0], _results[1], _results[2]))    
             results.append(_results)
 
