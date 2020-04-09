@@ -44,14 +44,14 @@ class CelebA():
     def create_image_dataset(self, labels):
         """
         Return an List with the images corresponding to the given labels.
-        The images are normalized and returned as a raveled array.
+        The images are normalized and returned as raveled arrays.
         """
         imgs = []
         imgs_id = [item[0] for item in labels]
 
         for i in imgs_id:
             image_path ='/input/CelebA/img_align_celeba/img_align_celeba/' + i
-              imgs.append(self.get_image(image_path))
+            imgs.append(self.get_image(image_path))
 
         return imgs
 
@@ -138,7 +138,7 @@ class CelebA():
 
     def batch_generator(self, batch_dim):
         """
-        Batch generator using the label OrderedDict
+        Batch generator using the train set labels.
         """
 
         while True:
