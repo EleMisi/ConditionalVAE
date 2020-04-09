@@ -47,12 +47,11 @@ class CelebA():
         The images are normalized and returned as a raveled array.
         """
         imgs = []
-        images_dataset = glob('/input/CelebA/img_align_celeba/img_align_celeba/*.jpg')
         imgs_id = [item[0] for item in labels]
 
-        for i in images_dataset:
-            if os.path.split(i)[1] in imgs_id:
-              imgs.append(self.get_image(image_path = i))
+        for i in imgs_id:
+            image_path ='/input/CelebA/img_align_celeba/img_align_celeba/' + i
+              imgs.append(self.get_image(image_path))
 
         return imgs
 
