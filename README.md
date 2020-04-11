@@ -17,7 +17,8 @@
 ### Train positional arguments
 * -n -> latent space dimension
 * -l -> learning rate
-* -b -> batch size (keep it small, < 100)
+* -bs -> batch size 
+* -b -> beta parameter 
 * -e -> number of training epochs
 * -d -> dropout parameter (0 means no dropout)
 * -td -> training set dimension wrt the whole dataset
