@@ -113,16 +113,6 @@ class CVAE (object) :
             if self.dropout:
                 e_layer3 = tf.nn.dropout(e_layer3, rate = self.dropout)
 
-			"""
-            # 4th hidden layer
-            e_layer4 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_4_dim"],
-                input_shape = (self.nn_architecture["hidden_enc_3_dim"],),
-                activation = self.activation_fn, 
-                kernel_initializer = self.initializer)(e_layer3)
-
-            if self.dropout:
-                e_layer4 = tf.nn.dropout(e_layer4, rate = self.dropout)
-            """
             # Dense layer to get mean and log(std) of the prior
             self.z_mean = dense_layer(e_layer3, self.nn_architecture["hidden_enc_3_dim"], self.nn_architecture["z_dim"], self.initializer)
             self.z_log_sigma_sq = dense_layer(e_layer3, self.nn_architecture["hidden_enc_3_dim"], self.nn_architecture["z_dim"], self.initializer)
@@ -160,15 +150,6 @@ class CVAE (object) :
             if self.dropout:
                 d_layer3 = tf.nn.dropout(d_layer3, rate = self.dropout)
 
-	        """
-            # 4th hidden layer
-            d_layer4 = tf.keras.layers.Dense(self.nn_architecture["hidden_dec_4_dim"], 
-                                            input_shape = (self.nn_architecture["hidden_dec_3_dim"],),
-                                            activation = self.activation_fn, 
-                                            kernel_initializer = self.initializer)(d_layer3)
-            if self.dropout:
-                d_layer4 = tf.nn.dropout(d_layer4, rate = self.dropout)
-            """
             # Output layer
             output = dense_layer(d_layer3, self.nn_architecture["hidden_dec_3_dim"], self.nn_architecture["image_size"] * self.nn_architecture["image_size"] * self.nn_architecture["n_channels"], self.initializer)
 
