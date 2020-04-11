@@ -24,6 +24,7 @@
 * -p -> plot parameter (0 means no plot, 1 means plot)
 
 ### Plot positional arguments
+* -n -> latent space dimension
 * -m -> plotting mode (reconstr to plot only reconstructed images, gen to plot only generated images; deafult value is None and both the plot types are performed)
 * -t -> generate specific attributes or random (0 to generate images with random attributes, 1 to generate images with specific attributes)
 
