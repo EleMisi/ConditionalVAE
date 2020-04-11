@@ -16,10 +16,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='This script is ...', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-n', '--z_dim', action='store', nargs='?', const=None, default=20, type=int,
                         choices=None, help='Dimension of latent vector. [default: 20]', metavar=None)
-    parser.add_argument('-b', '--batch_size', action='store', nargs='?', const=None, default=100, type=int,
+    parser.add_argument('-bs', '--batch_size', action='store', nargs='?', const=None, default=100, type=int,
                         choices=None, help='Batch size. [default: 100]', metavar=None)
     parser.add_argument('-e', '--epoch', action='store', nargs='?', const=None, default=150, type=int,
                         choices=None, help='Epoch number. [default: 150]', metavar=None)
+    parser.add_argument('-b', '--beta', action='store', nargs='?', const=None, default=1, type=float,
+                        choices=None, help='Beta parameter. [default: 1]', metavar=None)
     parser.add_argument('-l', '--lr', action='store', nargs='?', const=None, default=0.005, type=float,
                         choices=None, help='Learning rate. [default: 0.005]', metavar=None)
     parser.add_argument('-td', '--train_dim', action='store', nargs='?', const=None, default=0.8, type=float,
@@ -37,7 +39,7 @@ if __name__ == '__main__':
     #---------------Parameters----------------
     save_path = "./log/CVAE_%i/" % (args.z_dim)
     param = get_parameter("./parameters.json", args.z_dim)
-    opt = dict(nn_architecture=param, batch_size=args.batch_size, learning_rate=args.lr, save_path=save_path,
+    opt = dict(nn_architecture=param, batch_size=args.batch_size, beta = args.beta, learning_rate=args.lr, save_path=save_path,
                max_grad_norm=args.clip, dropout = args.dropout)
 
     

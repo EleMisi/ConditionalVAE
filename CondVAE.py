@@ -113,7 +113,7 @@ class CVAE (object) :
             if self.dropout:
                 e_layer3 = tf.nn.dropout(e_layer3, rate = self.dropout)
 
-"""
+			"""
             # 4th hidden layer
             e_layer4 = tf.keras.layers.Dense(self.nn_architecture["hidden_enc_4_dim"],
                 input_shape = (self.nn_architecture["hidden_enc_3_dim"],),
