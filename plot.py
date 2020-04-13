@@ -33,8 +33,10 @@ def generate_image_random(model, test_data, name = None, target_attr = None, std
         name = name + "_noAttr"
         print("Generation of 10 images with random attributes.")
 
-    true_label = np.tile(attr_vect, reps = [model.batch_size, 1])
-    generated = model.decode(true_label, std = std)
+    batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'])
+    _x, _ = next(batch_gen)
+    _y = np.tile(attr_vect, reps = [model.batch_size, 1])
+    generated = model.decode(_x, _y)
     
     #-----------Plot----------------
     imshow_grid(generated, shape=[2, 5], name = name, save = True)

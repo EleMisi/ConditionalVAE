@@ -28,8 +28,8 @@ if __name__ == '__main__':
                         choices=None, help=' training set dimension wrt the whole dataset. [default: 0.8]', metavar=None)
     parser.add_argument('-d', '--dropout', action='store', nargs='?', const=None, default=0, type=float,
                         choices=None, help='Dropout parameter. [default: 0]', metavar=None)
-    parser.add_argument('-c', '--clip', action='store', nargs='?', const=None, default=None, type=float,
-                        choices=None, help='Gradient clipping. [default: None]', metavar=None)
+    parser.add_argument('-c', '--clip', action='store', nargs='?', const=None, default=1, type=float,
+                        choices=None, help='Gradient clipping. [default: 1]', metavar=None)
     parser.add_argument('-p', '--plot', action='store', nargs='?', const=None, default=False, type=bool,
                         choices=None, help='Plot after train. [default: False]', metavar=None)               
     args = parser.parse_args()
@@ -39,7 +39,7 @@ if __name__ == '__main__':
     #---------------Parameters----------------
     save_path = "./log/CVAE_%i/" % (args.z_dim)
     param = get_parameter("./parameters.json", args.z_dim)
-    opt = dict(nn_architecture=param, batch_size=args.batch_size, beta = args.beta, learning_rate=args.lr, save_path=save_path,
+    opt = dict(nn_architecture=param, batch_size=args.batch_size, image_dim = 64*64*3,beta = args.beta, learning_rate=args.lr, save_path=save_path,
                max_grad_norm=args.clip, dropout = args.dropout)
 
     
