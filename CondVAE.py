@@ -2,9 +2,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras.initializers import GlorotUniform, VarianceScaling
 
-from loss import reconstruction_loss, latent_loss
-from utils import dense_layer
-
 tf.compat.v1.disable_eager_execution()
 
 class CVAE (tf.keras.Model) :
@@ -101,22 +98,25 @@ class CVAE (tf.keras.Model) :
                 tf.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer),
+                tf.keras.layers.Dropout(self.dropout),
                 tf.keras.layers.Dense(self.nn_architecture["hidden_enc_2_dim"],
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer),
+                tf.keras.layers.Dropout(self.dropout),
                 tf.keras.layers.Dense(self.nn_architecture["hidden_enc_3_dim"],
                                             activation = self.activation_fn, 
                                             kernel_initializer = self.initializer),
+                tf.keras.layers.Dropout(self.dropout),
                 # Output layer - No activation
                 tf.keras.layers.Dense(self.latent_dim + self.latent_dim)
             ])
 
         # Dense layer to get mean and log(std) of the prior
-        self.z_mean, self.z_logvar = tf.split(self.encoder(conditional_input), num_or_size_splits=2, axis=1)
+        self.z_mean, self.z_log_var = tf.split(self.encoder(conditional_input), num_or_size_splits=2, axis=1)
 
         #------------Reparametrization---------------
         eps = tf.random.normal(shape = (self.batch_size, self.latent_dim), mean = 0.0, stddev = 1.0)       
-        self.z = tf.compat.v1.add(self.z_mean, tf.compat.v1.multiply(tf.math.exp(self.z_logvar * .5), eps))
+        self.z = tf.compat.v1.add(self.z_mean, tf.compat.v1.multiply(tf.math.exp(self.z_log_var * .5), eps))
         conditional_z = tf.compat.v1.concat([self.z, self.y], axis=1)
 
         #-----------Decoder Network-------------
@@ -128,12 +128,15 @@ class CVAE (tf.keras.Model) :
                 tf.keras.layers.Dense(self.nn_architecture["hidden_dec_1_dim"],
                                               activation = self.activation_fn, 
                                               kernel_initializer = self.initializer),
+                tf.keras.layers.Dropout(self.dropout),
                 tf.keras.layers.Dense(self.nn_architecture["hidden_dec_2_dim"],
                                               activation = self.activation_fn, 
                                               kernel_initializer = self.initializer),
+                tf.keras.layers.Dropout(self.dropout),
                 tf.keras.layers.Dense(self.nn_architecture["hidden_dec_3_dim"],
                                               activation = self.activation_fn, 
                                               kernel_initializer = self.initializer),
+                tf.keras.layers.Dropout(self.dropout),
                 # Output layer - No activation
                 tf.keras.layers.Dense(self.image_dim),
             ])
@@ -146,10 +149,9 @@ class CVAE (tf.keras.Model) :
         #---------Loss Function-----------
         with tf.compat.v1.name_scope('Loss'):
 
-            self.reconstr_loss = tf.compat.v1.reduce_mean(reconstruction_loss(original = self.x, 
-                                                reconstruction = self.generated_image))
-            self.latent_loss = tf.compat.v1.reduce_mean(latent_loss(self.z_mean, self.z_logvar))
-            self.loss = tf.where(tf.math.is_nan(self.reconstr_loss), 0.0, self.reconstr_loss) + self.beta * tf.where(tf.math.is_nan(self.latent_loss), 0.0, self.latent_loss)
+            self.reconstr_loss = self.reconstruction_loss()
+            self.latent_loss = self.kl_divergence()
+            self.loss = self.reconstr_loss + self.beta * self.latent_loss
             
 
         #-----------Optimizer---------------
@@ -166,7 +168,24 @@ class CVAE (tf.keras.Model) :
         # Saver
         self.saver = tf.compat.v1.train.Saver()
 
-    #--------Reconstruction, Encoding and Decoding operations----------
+    #------------------------------------
+    # ELBO loss methods
+    #---------------------------------
+
+    def kl_divergence(self):
+        """Computes the KL divergence KL(q(z | x) ∥ p(z | x))"""
+        z_log_var = tf.compat.v1.clip_by_value(self.z_log_var, clip_value_min=-1e-10, clip_value_max=1e+2)
+        return  0.5 * tf.compat.v1.reduce_mean(tf.compat.v1.reduce_sum(
+            tf.square(self.z_mean) + tf.math.exp(z_log_var) - z_log_var - 1., axis=1))
+
+    def reconstruction_loss(self):
+        """Computes the reconstruction loss as MSE."""
+        return tf.reduce_mean(tf.square(self.x - self.generated_image))
+
+
+    #-------------------------------------------------
+    # Reconstruction, Encoding and Decoding methods
+    #-------------------------------------------------
 
     def reconstruct(self, inputs, label):
         """Reconstruct a given data. """

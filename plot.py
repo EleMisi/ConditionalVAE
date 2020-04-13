@@ -111,6 +111,7 @@ if __name__ == '__main__':
     acc = np.load("./log/CVAE_%i/%sacc.npz" % (args.z_dim, pr))
     opt = dict(nn_architecture=param, batch_size=acc["batch_size"])
     opt["label_dim"] = test_data["n_attr"]
+    opt["dropout"] = 0
     model = CVAE(load_model="./log/CVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
     
     # Save path
