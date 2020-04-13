@@ -198,7 +198,7 @@ class CelebA():
 
             #---------------Validation--------------
             _results = np.mean(_results, 0)
-            log.info("epoch %i: loss %0.3f, reconstr loss %0.3f, latent loss %0.3f"
+            log.info("epoch %i: loss %0.8f, reconstr loss %0.8f, latent loss %0.8f"
                         % (_e, _results[0], _results[1], _results[2]))    
             results.append(_results)
 
