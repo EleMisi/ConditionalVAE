@@ -22,19 +22,29 @@ class CVAE (tf.keras.Model) :
                  ):
 
         """
-        Parameters:
-            int label_dim: label vector dimension 
-            dict nn_architecture: 
-                    "hidden_enc_j_dim": dimensionality of the j-th hidden layer output space (encoder)
-                    "hidden_dec_j_dim": dimensionality of the j-th hidden layer output space (decoder)
-            activation_fn: FC layers activation function [default tf.nn.relu]
-            float beta: beta-VAE parameter for weighting the KL divergence [default 1]
-            float learning_rate [default 0.001]
-            int batch_size: batch size of the network [default 32]
-            string save_path: path of the model saver [default None], 
-            string load_model: path of the model loader [default None], 
-            max_grad_norm: maximum norm for the gradients [default 1]
-            dropout: dropout regularization parameter [deafult 0.5]
+        Parameters
+        ----------
+        label_dim : int 
+            label vector dimension, 
+        nn_architecture : dict 
+                "hidden_enc_j_dim": dimensionality of the j-th hidden layer output space (encoder)
+                "hidden_dec_j_dim": dimensionality of the j-th hidden layer output space (decoder)
+        activation_fn 
+                FC layers activation function [default tf.nn.relu]
+        beta : float
+                beta-VAE parameter for weighting the KL divergence [default 1]
+        learning_rate : float
+                [default 0.001]
+        batch_size : int
+                batch size of the network [default 32]
+        save_path : sring
+                path of the model saver [default None] 
+        load_model : string 
+                path of the model loader [default None]
+        max_grad_norm : float
+                gradient clipping parameter [default 1]
+        dropout : float
+                dropout regularization parameter [deafult 0.5]
 
         """
         super(CVAE, self).__init__()
@@ -196,17 +206,17 @@ class CVAE (tf.keras.Model) :
 
     def encode(self, inputs, label):
         """ 
-        Input -> latent vector 
+        Input -> latent space 
         """
         return self.sess.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
 
-    def decode(self, inputs, label, z = None):
+    def decode(self, label, z = None):
         """ 
         Generates data by sampling from the latent space.
         If z is None, z is drawn from prior in latent space.
         Otherwise, data for this point in latent space is generated.
         """
         if z is None:
-            z = self.sess.run(self.z, feed_dict = {self.x : inputs, self.y: label}) #Sample the latent space
-        return self.sess.run(self.generated_image, feed_dict={self.z: z, self.x : inputs, self.y: label})
-
+            z = 0.0 + np.random.randn(self.batch_size, self.latent_dim) * 0.1
+        return self.sess.run(self.generated_image, feed_dict={self.z: z, self.y: label})
+        
