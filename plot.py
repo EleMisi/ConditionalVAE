@@ -34,7 +34,6 @@ def generate_image_random(model, test_data, name = None, target_attr = None, std
         attr_vect = np.zeros(test_data["n_attr"])
         for attr in target_attr:
             attr_vect[attr] = 1
-        attr_vect = []
         name = name + "_fixedAttr"
         print("Generation of 16 images with fixed attributes: ", target_attr)
 
