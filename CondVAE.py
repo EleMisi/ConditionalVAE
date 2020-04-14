@@ -12,34 +12,29 @@ class CVAE (tf.keras.Model) :
                  activation_fn = tf.nn.relu,
                  beta = 1,
                  image_dim = 64*64*3,
-                 latent_dim = 40,
+                 latent_dim = 32,
                  learning_rate = 0.001,
-                 batch_size = 100,
+                 batch_size = 32,
                  save_path = None,
                  load_model = None,
                  max_grad_norm = 1,
-                 dropout = 0
+                 dropout = 0.5
                  ):
 
         """
         Parameters:
             int label_dim: label vector dimension 
             dict nn_architecture: 
-                    input_dim: input dimension
-                    z_dim: latent space dimension
-                    dataset_dim: traing set dimension
-                    hidden_enc_1_dim: dimensionality of the 1st hidden layer output space (encoder)
-                    hidden_enc_2_dim: dimensionality of the 2nd hidden layer output space (encoder)
-                    hidden_dec_1_dim: dimensionality of the 1st hidden layer output space (decoder)
-                    hidden_dec_2_dim: dimensionality of the 2nd hidden layer output space (decoder)
-            activation_fn = tf.nn.relu
-            float beta : beta-VAE parameter for weighting the KL divergence [default 1]
-            float learning_rate = 0.001
-            int batch_size: batch size of the network [1, dataset_dim]
-            string save_path = None, 
-            string load_model = None, 
+                    "hidden_enc_j_dim": dimensionality of the j-th hidden layer output space (encoder)
+                    "hidden_dec_j_dim": dimensionality of the j-th hidden layer output space (decoder)
+            activation_fn: FC layers activation function [default tf.nn.relu]
+            float beta: beta-VAE parameter for weighting the KL divergence [default 1]
+            float learning_rate [default 0.001]
+            int batch_size: batch size of the network [default 32]
+            string save_path: path of the model saver [default None], 
+            string load_model: path of the model loader [default None], 
             max_grad_norm: maximum norm for the gradients [default 1]
-            dropout: dropout regularization parameter [deafult 0]
+            dropout: dropout regularization parameter [deafult 0.5]
 
         """
         super(CVAE, self).__init__()
@@ -149,7 +144,7 @@ class CVAE (tf.keras.Model) :
         #---------Loss Function-----------
         with tf.compat.v1.name_scope('Loss'):
 
-            self.reconstr_loss = self.reconstruction_loss()
+            self.reconstr_loss = self.bernoulli_log_likelihood()
             self.latent_loss = self.kl_divergence()
             self.loss = self.reconstr_loss + self.beta * self.latent_loss
             
@@ -174,14 +169,20 @@ class CVAE (tf.keras.Model) :
 
     def kl_divergence(self):
         """Computes the KL divergence KL(q(z | x) ∥ p(z | x))"""
-        z_log_var = tf.compat.v1.clip_by_value(self.z_log_var, clip_value_min=-1e-10, clip_value_max=1e+2)
+        z_log_var = tf.compat.v1.clip_by_value(self.z_log_var, clip_value_min=1e-10, clip_value_max=1e+2)
         return  0.5 * tf.compat.v1.reduce_mean(tf.compat.v1.reduce_sum(
             tf.square(self.z_mean) + tf.math.exp(z_log_var) - z_log_var - 1., axis=1))
 
-    def reconstruction_loss(self):
+    def mse(self):
         """Computes the reconstruction loss as MSE."""
         return tf.reduce_mean(tf.square(self.x - self.generated_image))
 
+    def bernoulli_log_likelihood(self, eps=1e-10):
+        """
+        Computes reconstruction loss as Bernoulli log likelihood.
+        """
+        _tmp = self.x * tf.math.log(eps + self.generated_image) + (1 - self.x) * tf.math.log(eps + 1 - self.generated_image)
+        return -tf.compat.v1.reduce_mean(tf.compat.v1.reduce_sum(_tmp, 1))
 
     #-------------------------------------------------
     # Reconstruction, Encoding and Decoding methods
