@@ -23,7 +23,7 @@ class CelebA():
         self.n_attr = len(self.attr)
         
 
-    def get_image(self, image_path, img_size = 128, img_resize = 64, x = 25, y = 45):
+    def get_image(self, image_path, model_name, img_size = 128, img_resize = 64, x = 25, y = 45):
         """
         Return an image as a flattened normalized numpy array (dim 64*64*3)
         """
@@ -35,13 +35,14 @@ class CelebA():
         image = image.resize([img_resize, img_resize], Image.BILINEAR)
         # Normalization
         img = np.array(image.convert(mode)).astype('float32')
-        img = img.ravel()
+        if model_name == "Dense" :
+            img = img.ravel()
         img /= 255.
 
         return np.array(img)
 
 
-    def create_image_dataset(self, labels):
+    def create_image_dataset(self, labels, model_name):
         """
         Return an List with the images corresponding to the given labels.
         The images are normalized and returned as raveled arrays.
@@ -51,7 +52,7 @@ class CelebA():
 
         for i in imgs_id:
             image_path ='/input/CelebA/img_align_celeba/img_align_celeba/' + i
-            imgs.append(self.get_image(image_path))
+            imgs.append(self.get_image(image_path, model_name))
 
         return imgs
 
@@ -123,20 +124,8 @@ class CelebA():
     
         return shuffled_labels
 
-    def next_batch(self, batch_dim, data, labels):
-        """
-        Create the next batch with a given dimension.
-        -data and labels are lists 
-        """
-        #Shuffle 
-        shuffled_data, shuffled_labels = self.shuffle()
-        #Create batch
-        batch_data = shuffled_data[:batch_dim]
-        batch_labels = shuffled_labels[:batch_dim]
 
-        return np.asarray(batch_data), np.asarray(batch_labels)
-
-    def batch_generator(self, batch_dim):
+    def batch_generator(self, batch_dim, model_name):
         """
         Batch generator using the train set labels.
         """
@@ -147,7 +136,7 @@ class CelebA():
             for label in (self.train_labels):
                 labels.append(label)
                 if len(labels) == batch_dim:
-                    batch_imgs = self.create_image_dataset(labels)
+                    batch_imgs = self.create_image_dataset(labels, model_name)
                     batch_labels = [x[1] for x in labels]
                     yield (np.asarray(batch_imgs), np.asarray(batch_labels))
                     batch_imgs = []
@@ -180,7 +169,7 @@ class CelebA():
         #-----------------Train-----------------
         for _e in range(epoch):
             _results = []
-            batch_gen = self.batch_generator(model.batch_size)
+            batch_gen = self.batch_generator(model.batch_size, model_name = model.nn_type)
             _b = 0 #counter
             for batch in batch_gen:  
                 _x, _y = batch
@@ -192,7 +181,7 @@ class CelebA():
                 _results.append(__result)
                 model.writer.add_summary(summary, int(_b + _e * model.batch_size))
                 _b += 1
-                #print(_b)
+                
                 if _b == n_batches:
                     break
 

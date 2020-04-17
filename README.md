@@ -15,19 +15,24 @@
 ## Train and plot configurations
 
 ### Train positional arguments
-* -n -> latent space dimension
-* -l -> learning rate
+* -a -> alpha parameter
+* -b -> beta parameter
 * -bs -> batch size 
-* -b -> beta parameter 
+* -c -> clipping gradient parameter
+* -d -> dropout parameter
 * -e -> number of training epochs
-* -d -> dropout parameter (0 means no dropout)
-* -td -> training set dimension wrt the whole dataset
+* -l -> learning rate
+* -n -> latent space dimension
+* -nn -> neural network ['Dense' : dense hidden layers, 'Conv' : convolutional layers]
 * -p -> plot parameter (0 means no plot, 1 means plot)
+* -td -> training set dimension wrt the whole dataset
+
 
 ### Plot positional arguments
+* -m -> plotting mode ['reconstr' : plot only reconstructed images, 'gen' : to plot generated images] 
 * -n -> latent space dimension
-* -m -> plotting mode (reconstr to plot only reconstructed images, gen to plot only generated images; deafult value is None and both the plot types are performed)
-* -t -> generate specific attributes or random (0 to generate images with random attributes, 1 to generate images with specific attributes)
+* -nn -> neural network ['Dense' : dense hidden layers, 'Conv' : convolutional layers]
+* -t -> generate images with specific attributes or not [0 : generate images with attributes taken from the test set, 1 : generate images with user specified attributes]
 
 The images are saved in a folder named result
 

@@ -9,7 +9,8 @@ import numpy as np
 import tensorflow as tf
 
 from celeba import CelebA
-from CondVAE import CVAE
+from DenseCondVAE import DenseCVAE
+from ConvolutionalCondVAE import ConvCVAE
 from utils import read_VarToSave, batch_generator, get_parameter
 
 
@@ -41,48 +42,77 @@ def generate_image_random(model, test_data, name = None, target_attr = None, std
     generated = model.decode(label = _y)
     
     #-----------Plot----------------
-    imshow_grid(generated, shape=[4, 4], name = name, save = True)
+    imshow_grid(generated, model_name = model.nn_type, shape=[4, 4], name = name, save = True)
 
 
 def reconstruct(model, test_data, save_path=None):
     """
     Reconstruct and plot 5 input images.
     """
-    batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'])
+    batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'], model_name = model.nn_type)
     _x, _y = next(batch_gen)
     reconstruction = model.reconstruct(_x, _y)
 
+    print(reconstruction.shape)
+
     #-----------Plot----------------
     plt.figure(figsize=(6, 10))
+    if model.nn_type == "Dense":
+        for i in range(5):
+            plt.subplot(5, 2, 2 * i + 1)
+            plt.imshow(_x[i].reshape(64, 64, 3))
+            plt.title("Test input %i" % np.argmax(i))
+            plt.subplot(5, 2, 2 * i + 2)
+            plt.imshow(reconstruction[i].reshape(64, 64, 3))
+            plt.title("Reconstruction")
+            plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path + "reconstruction.png", bbox_inches="tight")
+            plt.clf()
+        else:
+            plt.show()
 
-    for i in range(5):
-        plt.subplot(5, 2, 2 * i + 1)
-        plt.imshow(_x[i].reshape(64, 64, 3))
-        plt.title("Test input %i" % np.argmax(i))
-        plt.subplot(5, 2, 2 * i + 2)
-        plt.imshow(reconstruction[i].reshape(64, 64, 3))
-        plt.title("Reconstruction")
-        plt.tight_layout()
-    if save_path:
-        plt.savefig(save_path + "reconstruction.png", bbox_inches="tight")
-        plt.clf()
+    else:
+        for i in range(5):
+            plt.subplot(5, 2, 2 * i + 1)
+            plt.imshow(_x[i].reshape(64, 64, 3))
+            plt.title("Test input %i" % np.argmax(i))
+            plt.subplot(5, 2, 2 * i + 2)
+            plt.imshow(reconstruction[i])
+            plt.title("Reconstruction")
+            plt.tight_layout()
+        if save_path:
+            plt.savefig(save_path + "reconstruction.png", bbox_inches="tight")
+            plt.clf()
+        else:
+            plt.show()
+
 
     print("Reconstruction of 5 images from the test set.")
 
-def imshow_grid(imgs, shape=[2, 5], name='default', save=False):
+def imshow_grid(imgs, model_name, shape=[2, 5], name='default', save=False):
     """Plot images in a grid of a given shape."""
     fig = plt.figure(1)
     grid = ImageGrid(fig, 111, nrows_ncols=shape, axes_pad=0.05)
     size = shape[0] * shape[1]
-
-    for i in range(size):
-        grid[i].axis('off')
-        grid[i].imshow(imgs[i].reshape(64, 64, 3))  
-    if save:
-        plt.savefig(str(name) + '.png')
-        plt.clf()
+    if model_name == "Dense":
+        for i in range(size):
+            grid[i].axis('off')
+            grid[i].imshow(imgs[i].reshape(64, 64, 3))  
+        if save:
+            plt.savefig(str(name) + '.png')
+            plt.clf()
+        else:
+            plt.show()
     else:
-        plt.show()
+        for i in range(size):
+            grid[i].axis('off')
+            grid[i].imshow(imgs[i])  
+        if save:
+            plt.savefig(str(name) + '.png')
+            plt.clf()
+        else:
+            plt.show()
 
 if __name__ == '__main__':
 
@@ -93,30 +123,41 @@ if __name__ == '__main__':
                         choices=None, metavar=None, help="""Plot type.\n- reconstr: reconstruction - gen: generate 10 images with random/given attributes. [default None (all)] """)
     parser.add_argument('-n', '--z_dim', action='store', nargs='?', const=None, default=20, type=int,
                         choices=None, help='Latent dimension. [default: 20]', metavar=None)
+    parser.add_argument('-nn', '--neural_network', action='store', nargs='?', const=None, default='Conv', type=str,
+                        choices=None, help='Neural network architecture. [default: Conv]', metavar=None)
     parser.add_argument('-p', '--progress', action='store', nargs='?', const=None, default=None, type=str, metavar=None,
                         choices=None, help='Use progress model (model is saved each 50 epoch). [default: None]')
     parser.add_argument('-s', '--std', action='store', nargs='?', const=None, default=0.1, type=float,
                         choices=None, help='Std of gaussian noise for `gen_rand` plotting. [default: 0.1]', metavar=None)
     parser.add_argument('-t', '--target', action='store', nargs='?', const=None, default=False, type=bool, metavar=None,
                         choices=None,
-                        help='Target attribute(s). [default: False (random attributes)]')
+                        help='Target attribute(s). [default: False (test set attributes)]')
     args = parser.parse_args()
 
+
+    # Read test_data.pickle 
+    test_data = read_VarToSave("./test_data")
     
     pr = "progress-%s-" % args.progress if args.progress else ""
-    param = get_parameter("./parameters.json", args.z_dim)
 
-    #--------- Read test_data.pickle ------------
-    test_data = read_VarToSave("./test_data")
+    # Set the model
+    if args.neural_network == 'Dense':
+        param = get_parameter("./parameters.json", args.z_dim)
+        acc = np.load("./log/DenseCVAE_%i/%sacc.npz" % (args.z_dim, pr))
+        opt = dict(nn_architecture=param, batch_size=acc["batch_size"])
+        opt["label_dim"] = test_data["n_attr"]
+        opt["dropout"] = 0
+        model = DenseCVAE(load_model="./log/DenseCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
+    else:
+        acc = np.load("./log/ConvCVAE_%i/%sacc.npz" % (args.z_dim, pr))
+        opt = dict(batch_size=acc["batch_size"])
+        opt["label_dim"] = test_data["n_attr"]
+        opt["latent_dim"] = args.z_dim
+        opt["dropout"] = 0
+        model = ConvCVAE(load_model="./log/ConvCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
 
-    #----------Set the model------------------
-    acc = np.load("./log/CVAE_%i/%sacc.npz" % (args.z_dim, pr))
-    opt = dict(nn_architecture=param, batch_size=acc["batch_size"])
-    opt["label_dim"] = test_data["n_attr"]
-    opt["dropout"] = 0
-    model = CVAE(load_model="./log/CVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
     
-    # Save path
+    # Saving path for images
     folder = "./results/"
     if not os.path.exists(folder):
         os.mkdir(folder)

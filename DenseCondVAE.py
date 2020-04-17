@@ -4,7 +4,7 @@ from tensorflow.keras.initializers import GlorotUniform, VarianceScaling
 
 tf.compat.v1.disable_eager_execution()
 
-class CVAE (tf.keras.Model) :
+class DenseCVAE (tf.keras.Model) :
 
     def __init__(self, 
                  label_dim,
@@ -47,7 +47,7 @@ class CVAE (tf.keras.Model) :
                 dropout regularization parameter [deafult 0.5]
 
         """
-        super(CVAE, self).__init__()
+        super(DenseCVAE, self).__init__()
         self.label_dim = label_dim
         self.latent_dim = latent_dim
         self.image_dim = image_dim
@@ -58,6 +58,7 @@ class CVAE (tf.keras.Model) :
         self.batch_size = batch_size
         self.max_grad_norm = max_grad_norm
         self.dropout = dropout
+        self.nn_type = "Dense"
 
         # Network generation
         self.build_graph()
@@ -116,7 +117,7 @@ class CVAE (tf.keras.Model) :
                 tf.keras.layers.Dense(self.latent_dim + self.latent_dim)
             ])
 
-        # Dense layer to get mean and log(std) of the prior
+        # Mean and logaritmic variance of the latent space distribution
         self.z_mean, self.z_log_var = tf.split(self.encoder(conditional_input), num_or_size_splits=2, axis=1)
 
         #------------Reparametrization---------------
