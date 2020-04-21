@@ -161,24 +161,23 @@ class CelebA():
             os.mkdir(save_path)
         log = create_log(save_path+"Log")
         log.info("Training set dimension(%i) batch num(%i), batch size(%i)" % (n_train, n_batches, model.batch_size))
-        results = []
+        losses = []
 
         # Session initialization
         model.sess.run(tf.compat.v1.global_variables_initializer())
 
         #-----------------Train-----------------
         for _e in range(epoch):
-            _results = []
+            _losses = []
             batch_gen = self.batch_generator(model.batch_size, model_name = model.nn_type)
             _b = 0 #counter
             for batch in batch_gen:  
                 _x, _y = batch
-                feed_val = [model.summary, model.loss, model.reconstr_loss , model.latent_loss, model.train]
+                feed_val = [model.summary, model.loss, model.recreconstr_loss , model.latent_loss, model.train]
                 feed_dict = {model.x: _x, model.y: _y} 
                 summary, loss, reconstr_loss , latent_loss, _ = model.sess.run(feed_val, feed_dict=feed_dict)
-                __result = [loss, reconstr_loss , latent_loss]
-            
-                _results.append(__result)
+                __losses = [loss, np.mean(reconstr_loss), np.mean(latent_loss)]
+                _losses.append(__losses)
                 model.writer.add_summary(summary, int(_b + _e * model.batch_size))
                 _b += 1
                 
@@ -186,21 +185,21 @@ class CelebA():
                     break
 
             #---------------Validation--------------
-            _results = np.mean(_results, 0)
+            _losses = np.mean(_losses, 0)
             log.info("epoch %i: loss %0.8f, reconstr loss %0.8f, latent loss %0.8f"
-                        % (_e, _results[0], _results[1], _results[2]))    
-            results.append(_results)
+                        % (_e, _losses[0], _losses[1], _losses[2]))    
+            losses.append(_losses)
 
             #----------Save progress every 5 epochs----------
             if (_e + 1) % 5 == 0:
                 model.saver.save(model.sess, "%s/progress-%i-model.ckpt" % (save_path, _e))
-                np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(results),
+                np.savez("%s/progress-%i-acc.npz" % (save_path, _e), loss=np.array(losses),
                         learning_rate=model.learning_rate, epoch=epoch, batch_size=model.batch_size,
                         clip=model.max_grad_norm)
 
         #------------Save the final model--------------                 
         model.saver.save(model.sess, "%s/model.ckpt" % save_path)
-        np.savez("%s/acc.npz" % save_path, loss=np.array(results), learning_rate=model.learning_rate, epoch=epoch,
+        np.savez("%s/acc.npz" % save_path, loss=np.array(losses), learning_rate=model.learning_rate, epoch=epoch,
                 batch_size=model.batch_size, clip=model.max_grad_norm)
 
 

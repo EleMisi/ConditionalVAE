@@ -25,23 +25,20 @@ def generate_image_random(model, test_data, name = None, target_attr = None, std
         attr_vect = np.zeros(test_data["n_attr"])
         for attr in target_attr:
             attr_vect[attr] = 1
+        labels = np.tile(attr_vect, reps = [model.batch_size, 1])
         name = name + "Attributes"
         print("Generation of 16 images with attributes: ", target_attr )
 
-    # Vector of fixed attributes
+   # Vector of fixed attributes
     else:        
-        #attr_vect = np.random.choice([0, 1], size=(test_data["n_attr"],), p=[2./3, 1./3])
-        target_attr = [29, 20, 31, 22, 2, 11, 33, 15]
-        attr_vect = np.zeros(test_data["n_attr"])
-        for attr in target_attr:
-            attr_vect[attr] = 1
-        name = name + "_fixedAttr"
-        print("Generation of 16 images with fixed attributes: ", target_attr)
+        batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'], model_name = model.nn_type)
+        _, labels = next(batch_gen)
+        name = name + "_Test_set_Attr"
+        print("Generation of 16 images with fixed attributes.")
 
-    _y = np.tile(attr_vect, reps = [model.batch_size, 1])
-    generated = model.decode(label = _y)
+    generated = model.decode(label = labels)
     
-    #-----------Plot----------------
+    # Plot
     imshow_grid(generated, model_name = model.nn_type, shape=[4, 4], name = name, save = True)
 
 
@@ -52,8 +49,6 @@ def reconstruct(model, test_data, save_path=None):
     batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'], model_name = model.nn_type)
     _x, _y = next(batch_gen)
     reconstruction = model.reconstruct(_x, _y)
-
-    print(reconstruction.shape)
 
     #-----------Plot----------------
     plt.figure(figsize=(6, 10))

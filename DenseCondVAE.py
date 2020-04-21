@@ -10,6 +10,7 @@ class DenseCVAE (tf.keras.Model) :
                  label_dim,
                  nn_architecture,
                  activation_fn = tf.nn.relu,
+                 alpha = 1,
                  beta = 1,
                  image_dim = 64*64*3,
                  latent_dim = 32,
@@ -31,6 +32,8 @@ class DenseCVAE (tf.keras.Model) :
                 "hidden_dec_j_dim": dimensionality of the j-th hidden layer output space (decoder)
         activation_fn 
                 FC layers activation function [default tf.nn.relu]
+        alpha : float
+                alpha-beta VAE parameter for weighting the reconstruction loss [default 1]
         beta : float
                 beta-VAE parameter for weighting the KL divergence [default 1]
         learning_rate : float
@@ -53,6 +56,7 @@ class DenseCVAE (tf.keras.Model) :
         self.image_dim = image_dim
         self.nn_architecture = nn_architecture
         self.activation_fn = activation_fn
+        self.alpha = alpha
         self.beta = beta
         self.learning_rate = learning_rate
         self.batch_size = batch_size
@@ -87,11 +91,8 @@ class DenseCVAE (tf.keras.Model) :
         self.y = tf.compat.v1.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
         conditional_input = tf.compat.v1.concat([self.x, self.y], axis = 1)
         
-        # Layer Initializer
-        if "relu" in self.activation_fn.__name__:
-            self.initializer = VarianceScaling()
-        if "sigmoid" in self.activation_fn.__name__:
-            self.initializer = GlorotUniform()
+        # Layers Initializer
+        self.initializer = GlorotUniform()
 
         #----------Encoder Network-----------
         
@@ -157,7 +158,7 @@ class DenseCVAE (tf.keras.Model) :
 
             self.reconstr_loss = self.bernoulli_log_likelihood()
             self.latent_loss = self.kl_divergence()
-            self.loss = self.reconstr_loss + self.beta * self.latent_loss
+            self.loss = self.alpha * self.reconstr_loss + self.beta * self.latent_loss
             
 
         #-----------Optimizer---------------

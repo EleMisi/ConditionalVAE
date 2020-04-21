@@ -10,12 +10,11 @@ from utils import get_parameter, save_VarToSave
 
 
 if __name__ == '__main__':
-    #------Ignore warning message by tensor flow--------
-    os.environ['TF_CPP_MIN_LOG_LEVEL'] = '2'
 
     #----------------Parser------------------
-    parser = argparse.ArgumentParser(description='This script is ...', formatter_class=argparse.RawTextHelpFormatter)
-    
+    parser = argparse.ArgumentParser(description='Conditional VAE train script.', formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument('-a', '--alpha', action='store', nargs='?', const=None, default=1, type=float,
+                        choices=None, help='Alpha parameter. [default: 1]', metavar=None)
     parser.add_argument('-b', '--beta', action='store', nargs='?', const=None, default=1, type=float,
                         choices=None, help='Beta parameter. [default: 1]', metavar=None)
     parser.add_argument('-bs', '--batch_size', action='store', nargs='?', const=None, default=100, type=int,
@@ -28,8 +27,8 @@ if __name__ == '__main__':
                         choices=None, help='Epoch number. [default: 150]', metavar=None) 
     parser.add_argument('-l', '--lr', action='store', nargs='?', const=None, default=0.005, type=float,
                         choices=None, help='Learning rate. [default: 0.005]', metavar=None)
-    parser.add_argument('-n', '--z_dim', action='store', nargs='?', const=None, default=20, type=int,
-                        choices=None, help='Dimension of latent vector. [default: 20]', metavar=None)
+    parser.add_argument('-n', '--z_dim', action='store', nargs='?', const=None, default=32, type=int,
+                        choices=None, help='Dimension of latent vector. [default: 32]', metavar=None)
     parser.add_argument('-nn', '--neural_network', action='store', nargs='?', const=None, default='Conv', type=str,
                         choices=None, help='Neural network architecture. [default: Conv]', metavar=None)
     parser.add_argument('-p', '--plot', action='store', nargs='?', const=None, default=False, type=bool,
@@ -38,9 +37,11 @@ if __name__ == '__main__':
                         choices=None, help=' training set dimension wrt the whole dataset. [default: 0.8]', metavar=None)              
     args = parser.parse_args()
 
+    
     # Model constructor parameters
     opt = dict(
         batch_size=args.batch_size, 
+        alpha = args.alpha,
         beta = args.beta, 
         learning_rate=args.lr, 
         max_grad_norm=args.clip, 
@@ -67,6 +68,7 @@ if __name__ == '__main__':
         opt["save_path"] = save_path
         model = ConvCVAE(**opt)
         print("Convolutional CVAE built.")
+
 
     # Train 
     dataset.celebA_train(model, epoch=args.epoch, save_path=save_path)
