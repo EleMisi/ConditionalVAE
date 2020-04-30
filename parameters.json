@@ -2,10 +2,12 @@
     "hidden_enc_1_dim": 256,
     "hidden_enc_2_dim": 256,
     "hidden_enc_3_dim": 256,
+    "hidden_enc_4_dim": 256,
     "hidden_dec_1_dim": 256,
     "hidden_dec_2_dim": 256,
     "hidden_dec_3_dim": 256,
+    "hidden_dec_4_dim": 256,
     "image_size": 64,
     "n_channels": 3,
-    "z_dim": 16
+    "z_dim": 32
   }
