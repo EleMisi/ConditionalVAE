@@ -11,7 +11,6 @@ from utils import get_parameter, save_VarToSave
 
 if __name__ == '__main__':
 
-    #----------------Parser------------------
     parser = argparse.ArgumentParser(description='Conditional VAE train script.', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-a', '--alpha', action='store', nargs='?', const=None, default=1, type=float,
                         choices=None, help='Alpha parameter. [default: 1]', metavar=None)
@@ -30,7 +29,7 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--z_dim', action='store', nargs='?', const=None, default=32, type=int,
                         choices=None, help='Dimension of latent vector. [default: 32]', metavar=None)
     parser.add_argument('-nn', '--neural_network', action='store', nargs='?', const=None, default='Conv', type=str,
-                        choices=None, help='Neural network architecture. [default: Conv]', metavar=None)
+                        choices=None, help='Conv -> Convolutional CVAE. Dense -> Dense CVAE. [default: Conv]', metavar=None)
     parser.add_argument('-p', '--plot', action='store', nargs='?', const=None, default=False, type=bool,
                         choices=None, help='Plot after train. [default: False]', metavar=None) 
     parser.add_argument('-td', '--train_dim', action='store', nargs='?', const=None, default=0.8, type=float,
@@ -38,8 +37,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     
-    # Model constructor parameters
-    opt = dict(
+    # Model parameters
+    params = dict(
         batch_size=args.batch_size, 
         alpha = args.alpha,
         beta = args.beta, 
@@ -53,27 +52,27 @@ if __name__ == '__main__':
 
     # Set the network
     if args.neural_network == "Dense":
-        param = get_parameter("./parameters.json", args.z_dim) 
+        nn_architecture = get_parameter("./parameters.json", args.z_dim) 
         save_path = "./log/DenseCVAE_%i/" % (args.z_dim)
-        opt["label_dim"] = dataset.n_attr
-        opt["nn_architecture"]=param   
-        opt["save_path"] = save_path
-        model = DenseCVAE(**opt)
+        params["label_dim"] = dataset.n_attr
+        params["nn_architecture"]=nn_architecture   
+        params["save_path"] = save_path
+        model = DenseCVAE(**params)
         print("Dense CVAE built.")
         
     if args.neural_network == "Conv":
         save_path = "./log/ConvCVAE_%i/" % (args.z_dim)
-        opt["label_dim"] = dataset.n_attr
-        opt["latent_dim"] = args.z_dim
-        opt["save_path"] = save_path
-        model = ConvCVAE(**opt)
+        params["label_dim"] = dataset.n_attr
+        params["latent_dim"] = args.z_dim
+        params["save_path"] = save_path
+        model = ConvCVAE(**params)
         print("Convolutional CVAE built.")
 
 
     # Train 
-    dataset.celebA_train(model, epoch=args.epoch, save_path=save_path)
+    dataset.celebA_train(model, n_epochs=args.epoch, save_path=save_path)
 
-    # Save test_data for plot
+    # Save data for plotting operations
     if args.plot:
         test_data = {
             'train_dim' : dataset.train_dim,

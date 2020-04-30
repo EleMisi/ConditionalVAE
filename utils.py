@@ -9,9 +9,9 @@ import sys
 import tensorflow as tf
 
 
-#------------------------------------------------
-#------Utils to save and read pickle files-------
-#------------------------------------------------
+#-----------------------------------------
+#   Utils to save and read pickle files
+#-----------------------------------------
 
 def save_VarToSave(file_name, varToSave):
     """
@@ -36,22 +36,21 @@ def read_VarToSave(file_name):
 
 
 #-----------------------------------------------
-#---------Utils for Reconstruction Plot---------
+#       Utils for image_reconstruction (plot.py)
 #-----------------------------------------------
 
 
 def batch_generator(batch_dim, test_labels, model_name):
     """
-    Batch generator using the label OrderedDict
+    Batch generator using test set labels.
     """
-
     while True:
         batch_imgs = []
         labels = []
         for label in (test_labels):
             labels.append(label)
             if len(labels) == batch_dim:
-                batch_imgs = create_image_dataset(labels, model_name)
+                batch_imgs = create_image_batch(labels, model_name)
                 batch_labels = [x[1] for x in labels]
                 yield (np.asarray(batch_imgs), np.asarray(batch_labels))
                 batch_imgs = []
@@ -62,7 +61,9 @@ def batch_generator(batch_dim, test_labels, model_name):
 
 def get_image( image_path, model_name, img_size = 128, img_resize = 64, x = 25, y = 45):
     """
-    Return an image as a flattened normalized numpy array (dim 64*64*3)
+    Crops, resizes and normalizes the target image.
+    If model_name == Dense, the image is returned as a flattened numpy array with dim (64*64*3)
+    Otherwise, the image is returned as a numpy array with dim (64,64,3)
     """
     mode='RGB' 
     image = Image.open(image_path)
@@ -72,17 +73,17 @@ def get_image( image_path, model_name, img_size = 128, img_resize = 64, x = 25, 
     image = image.resize([img_resize, img_resize], Image.BILINEAR)
     # Normalization
     img = np.array(image.convert(mode)).astype('float32')
+    img /= 255.
+    
     if model_name == "Dense" :
         img = img.ravel()
-    img /= 255.
 
     return np.array(img)
 
 
-def create_image_dataset(labels, model_name):
+def create_image_batch(labels, model_name):
     """
-    Return an List with the images corresponding to the given labels.
-    The images are normalized and returned as raveled arrays.
+    Returns the list of images corresponding to the given labels.
     """
     imgs = []
     imgs_id = [item[0] for item in labels]
@@ -93,11 +94,11 @@ def create_image_dataset(labels, model_name):
 
     return imgs
 
-#---------------------------------------------------------------------------
 
-#-------------------------------------------
-#--------parameters.json file reader--------
-#-------------------------------------------
+
+#----------------------------------
+#   parameters.json file reader 
+#----------------------------------
 
 def get_parameter(path, z_dim):
     with open(path) as f:
@@ -107,9 +108,10 @@ def get_parameter(path, z_dim):
     return p
 
 
-#--------------------------------------------
-#---------Utils for celeba_train-------------
-#--------------------------------------------
+
+#----------------------------------
+#       Utils for celeba_train
+#----------------------------------
 
 def create_log(name):
     """Log file creator."""
@@ -129,21 +131,4 @@ def create_log(name):
     log.addHandler(handler2)
     return log
 
-#-------Next Batch for reconstruction---------
-def next_batch(batch_dim, data, labels):
-    """
-    Create the next batch with a given dimension.
-    -data and labels are lists 
-    """
-    #Shuffle 
-    idx = np.arange(0 , len(data))
-    np.random.shuffle(idx)
-    shuffled_data = [data[i] for i in idx]
-    shuffled_labels = [labels[i] for i in idx]
-
-    #Create batch
-    batch_data = shuffled_data[:batch_dim]
-    batch_labels = shuffled_labels[:batch_dim]
-
-    return np.asarray(batch_data), np.asarray(batch_labels)
 

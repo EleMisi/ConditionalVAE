@@ -17,8 +17,9 @@ class ConvCVAE (tf.keras.Model) :
                  batch_size = 32,
                  save_path = None,
                  load_model = None,
-                 max_grad_norm = 10,
-                 dropout = 0.5
+                 max_grad_norm = 1,
+                 dropout = 0.5,
+                 is_train = True
                  ):
 
         """
@@ -29,9 +30,9 @@ class ConvCVAE (tf.keras.Model) :
         activation_fn 
                 FC layers activation function [default tf.nn.relu]
         alpha : float
-                alpha-beta VAE parameter for weighting the reconstruction loss [default 1]
+                alpha-beta VAE parameter for weighting the reconstruction loss term [default 1]
         beta : float
-                alpha-beta VAE parameter for weighting the KL divergence [default 1]
+                alpha-beta VAE parameter for weighting the KL divergence term [default 1]
         learning_rate : float
                 [default 0.001]
         batch_size : int
@@ -41,9 +42,11 @@ class ConvCVAE (tf.keras.Model) :
         load_model : string 
                 path of the model loader [default None]
         max_grad_norm : float
-                gradient clipping parameter [default 10]
+                gradient clipping parameter [default 1]
         dropout : float
                 dropout regularization parameter [deafult 0.5]
+        is_train : bool
+                batch normalization parameter [default True]
 
         """
         super(ConvCVAE, self).__init__()
@@ -58,8 +61,8 @@ class ConvCVAE (tf.keras.Model) :
         self.max_grad_norm = max_grad_norm
         self.dropout = dropout
         self.nn_type = "Convolutional"
-
-        # Network generation
+        self.is_train = is_train
+        
         self.build_graph()
 
         # Summary
@@ -81,26 +84,27 @@ class ConvCVAE (tf.keras.Model) :
     def build_graph(self):
         """Create the Network and define the Loss function and the Optimizer"""
 
-        # Conditional input
+        # Images and labels placeholders
         self.x = tf.compat.v1.placeholder(tf.float32, shape = [None, self.image_dim[0], self.image_dim[1], self.image_dim[2]], name = "input")
         self.y = tf.compat.v1.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
         
+        # Conditional input
         label = tf.reshape(self.y, [-1, 1, 1, self.label_dim]) #batch_size, 1, 1, label_size
-        one = tf.ones([self.batch_size] + self.image_dim[0:-1] + [self.label_dim]) #batch_size, 64, 64, label_size
-        label = one * label #batch_size, 64, 64, label_size
+        ones = tf.ones([self.batch_size] + self.image_dim[0:-1] + [self.label_dim]) #batch_size, 64, 64, label_size
+        label = ones * label #batch_size, 64, 64, label_size
         conditional_input = tf.concat([self.x, label], axis=3) #batch_size, 64, 64, label_size + 3.
         n_channels = self.image_dim[2] + self.label_dim
 
-        # Layers Initializer
+        # Layers initializer
         self.initializer = GlorotUniform()
 
-        #----------Encoder Network-----------
-        
+
+        #------------------
+        # Encoder Network
+        #------------------
         with tf.compat.v1.variable_scope("Encoder"):
             
-            #------------Encoder structure------------
-            self.encoder = tf.keras.Sequential(
-              [
+            self.encoder = tf.keras.Sequential([
                 tf.keras.layers.InputLayer(input_shape=self.image_dim[0:-1] + [n_channels]),
                 
                 tf.keras.layers.Conv2D( 
@@ -108,8 +112,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
-                    activation=None,
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
 
                 tf.keras.layers.Conv2D( 
@@ -117,8 +121,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
-                    activation=None,
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
             
                 tf.keras.layers.Conv2D( 
@@ -126,8 +130,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
-                    activation=None, 
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
                
                 tf.keras.layers.Conv2D(
@@ -135,8 +139,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
-                    activation=None, 
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
 
                 tf.keras.layers.Flatten(),
@@ -145,19 +149,22 @@ class ConvCVAE (tf.keras.Model) :
                 tf.keras.layers.Dense(self.latent_dim + self.latent_dim)
             ])
 
-        # Mean and logaritmic variance of the latent space distribution
+        # Mean and log-var of the latent distribution
         self.z_mean, self.z_log_var = tf.split(self.encoder(conditional_input), num_or_size_splits=2, axis=1)
 
-        #------------Reparametrization---------------
+        # Reparametrization trick
         eps = tf.random.normal(shape = (self.batch_size, self.latent_dim), mean = 0.0, stddev = 1.0)       
         self.z = tf.compat.v1.add(self.z_mean, tf.compat.v1.multiply(tf.math.exp(self.z_log_var * .5), eps))
+        
         conditional_z = tf.compat.v1.concat([self.z, self.y], axis=1) # (batch_size, label_dim + latent_dim)
         
-        #-----------Decoder Network-------------
+
+        #------------------
+        # Decoder Network
+        #------------------
         with tf.compat.v1.variable_scope("Decoder"):
             
-            self.decoder = tf.keras.Sequential(
-              [
+            self.decoder = tf.keras.Sequential([
                 tf.keras.layers.InputLayer(input_shape=(self.latent_dim + self.label_dim,)),
                 tf.keras.layers.Dense(units=4*4*32, activation=tf.nn.relu),
                 tf.keras.layers.Reshape(target_shape=(4, 4, 32)),
@@ -167,8 +174,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3,
                     strides=(2, 2),
                     padding='same',
-                    activation=None,
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
 
                 tf.keras.layers.Conv2DTranspose(
@@ -176,8 +183,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3,
                     strides=(2, 2),
                     padding='same',
-                    activation=None,
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
 
                 tf.keras.layers.Conv2DTranspose(
@@ -185,8 +192,8 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3,
                     strides=(2, 2),
                     padding='same',
-                    activation=None,
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
 
                 tf.keras.layers.Conv2DTranspose(
@@ -194,45 +201,52 @@ class ConvCVAE (tf.keras.Model) :
                     kernel_size=3,
                     strides=(2, 2),
                     padding='same',
-                    activation=None,
                     kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
                 tf.keras.layers.Activation(self.activation_fn),
 
-                # No activation
+                # Output layer - No activation
                 tf.keras.layers.Conv2DTranspose(
                     filters=3, 
                     kernel_size=3, 
                     strides=(1, 1), 
-                    padding='same'),
-              ]
-            )
-         
-        # Output
+                    padding='same')
+            ])
+
         logits = self.decoder(conditional_z)
+
         self.generated_image = tf.nn.sigmoid(logits)
 
-        #---------Loss Function-----------
+
+        #------------------
+        # Loss Function
+        #------------------
         with tf.compat.v1.name_scope('Loss'):
+            # KL divergence
             self.latent_loss = self.kl_divergence()
+            # Reconstruction loss
             self.reconstr_loss = self.mse()
-            self.loss = self.latent_loss + self.reconstr_loss
-            
+            # ELBO Loss
+            self.loss = tf.math.scalar_mul(self.alpha, self.reconstr_loss) + tf.math.scalar_mul(self.beta, self.latent_loss)
+            # Mean over the batch           
             self.loss = tf.reduce_mean(self.loss)
 
+
+        #------------------
         # Optimizer
+        #------------------
         optimizer = tf.keras.optimizers.Adam(learning_rate = self.learning_rate)
-       
-        # Gradient clipping
+        # Gradient clipping 
         _var = tf.compat.v1.trainable_variables()
         grads, _ = tf.compat.v1.clip_by_global_norm(tf.compat.v1.gradients(self.loss, _var), self.max_grad_norm)
+        
         self.train = optimizer.apply_gradients(zip(grads, _var))
-
-            
         
         # Saver
         self.saver = tf.compat.v1.train.Saver()
 
-    #------------------------------------
+
+    #---------------------------------
     # ELBO loss methods
     #---------------------------------
 
@@ -247,6 +261,14 @@ class ConvCVAE (tf.keras.Model) :
         x = tf.keras.backend.batch_flatten(self.x)
         x_reconstr = tf.keras.backend.batch_flatten(self.generated_image)
         return tf.reduce_sum(tf.square(x - x_reconstr), axis = 1)
+    
+    def bernoulli_log_likelihood(self, eps=1e-10):
+        """
+        Computes reconstruction loss as Bernoulli log likelihood.
+        """
+        _tmp = self.x * tf.math.log(eps + self.generated_image) + (1 - self.x) * tf.math.log(eps + 1 - self.generated_image)
+        return - tf.compat.v1.reduce_sum(_tmp, 1)
+
 
     #-------------------------------------------------
     # Reconstruction, Encoding and Decoding methods
@@ -254,22 +276,18 @@ class ConvCVAE (tf.keras.Model) :
 
     def reconstruct(self, inputs, label):
         """Reconstruct a given data. """
-        #print(len(inputs), self.batch_size)
         assert len(inputs) == self.batch_size
         assert len(label) == self.batch_size
         return self.sess.run(self.generated_image, feed_dict={self.x: inputs, self.y: label})
 
     def encode(self, inputs, label):
-        """ 
-        Input -> latent space 
-        """
+        """ Encodes the input into the latent space."""
         return self.sess.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
 
     def decode(self, label, z = None):
         """ 
-        Generates data by sampling from the latent space.
+        Generates data starting from the point z in the latent space.
         If z is None, z is drawn from prior in latent space.
-        Otherwise, data for this point in latent space is generated.
         """
         if z is None:
             z = 0.0 + np.random.randn(self.batch_size, self.latent_dim) * 1.0

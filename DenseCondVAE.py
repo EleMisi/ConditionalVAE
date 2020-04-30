@@ -4,6 +4,7 @@ from tensorflow.keras.initializers import GlorotUniform, VarianceScaling
 
 tf.compat.v1.disable_eager_execution()
 
+
 class DenseCVAE (tf.keras.Model) :
 
     def __init__(self, 
@@ -19,12 +20,14 @@ class DenseCVAE (tf.keras.Model) :
                  save_path = None,
                  load_model = None,
                  max_grad_norm = 1,
-                 dropout = 0.5
+                 dropout = 0.5,
+                 is_train = True
                  ):
 
         """
         Parameters
-        ----------
+        -------------
+
         label_dim : int 
             label vector dimension, 
         nn_architecture : dict 
@@ -33,9 +36,9 @@ class DenseCVAE (tf.keras.Model) :
         activation_fn 
                 FC layers activation function [default tf.nn.relu]
         alpha : float
-                alpha-beta VAE parameter for weighting the reconstruction loss [default 1]
+                alpha-beta VAE parameter for weighting the reconstruction loss term [default 1]
         beta : float
-                beta-VAE parameter for weighting the KL divergence [default 1]
+                alpha-beta VAE parameter for weighting the KL divergence term [default 1]
         learning_rate : float
                 [default 0.001]
         batch_size : int
@@ -48,6 +51,8 @@ class DenseCVAE (tf.keras.Model) :
                 gradient clipping parameter [default 1]
         dropout : float
                 dropout regularization parameter [deafult 0.5]
+        is_train : bool
+                batch normalization parameter [default True]
 
         """
         super(DenseCVAE, self).__init__()
@@ -63,8 +68,8 @@ class DenseCVAE (tf.keras.Model) :
         self.max_grad_norm = max_grad_norm
         self.dropout = dropout
         self.nn_type = "Dense"
-
-        # Network generation
+        self.is_train = is_train
+        
         self.build_graph()
 
         # Summary
@@ -83,142 +88,170 @@ class DenseCVAE (tf.keras.Model) :
             tf.compat.v1.reset_default_graph()
             self.saver.restore(self.sess, load_model)
     
-    def build_graph(self):
-        """Create the Network and define the Loss function and the Optimizer"""
 
-        #-----------Conditional input---------
+    def build_graph(self):
+        """Create the Network, define the loss function and the optimizer"""
+
+        # Images and labels placeholders
         self.x = tf.compat.v1.placeholder(tf.float32, shape = [None, self.image_dim], name = "input")
         self.y = tf.compat.v1.placeholder(tf.float32, shape = [None, self.label_dim], name = "label")
+        
+        # Conditional input
         conditional_input = tf.compat.v1.concat([self.x, self.y], axis = 1)
         
-        # Layers Initializer
+        # Layers initializer
         self.initializer = GlorotUniform()
 
-        #----------Encoder Network-----------
-        
+        #------------------
+        # Encoder Network
+        #------------------
         with tf.compat.v1.variable_scope("Encoder"):
-            
-            #------------Encoder structure------------
-            self.encoder = tf.keras.Sequential(
-                [
+
+            self.encoder = tf.keras.Sequential([
                 tf.keras.layers.InputLayer(input_shape=(self.image_dim + self.label_dim,)),
-                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"],
-                                            activation = self.activation_fn, 
-                                            kernel_initializer = self.initializer),
+                
+                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_1_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
                 tf.keras.layers.Dropout(self.dropout),
-                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_2_dim"],
-                                            activation = self.activation_fn, 
-                                            kernel_initializer = self.initializer),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_2_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
                 tf.keras.layers.Dropout(self.dropout),
-                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_3_dim"],
-                                            activation = self.activation_fn, 
-                                            kernel_initializer = self.initializer),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_3_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
                 tf.keras.layers.Dropout(self.dropout),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_enc_4_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
+                tf.keras.layers.Dropout(self.dropout),
+
                 # Output layer - No activation
                 tf.keras.layers.Dense(self.latent_dim + self.latent_dim)
             ])
 
-        # Mean and logaritmic variance of the latent space distribution
+        # Mean and log-var of the latent distribution
         self.z_mean, self.z_log_var = tf.split(self.encoder(conditional_input), num_or_size_splits=2, axis=1)
 
-        #------------Reparametrization---------------
+        # Reparametrization trick
         eps = tf.random.normal(shape = (self.batch_size, self.latent_dim), mean = 0.0, stddev = 1.0)       
         self.z = tf.compat.v1.add(self.z_mean, tf.compat.v1.multiply(tf.math.exp(self.z_log_var * .5), eps))
+        
         conditional_z = tf.compat.v1.concat([self.z, self.y], axis=1)
 
-        #-----------Decoder Network-------------
+        #------------------
+        # Decoder Network
+        #------------------
         with tf.compat.v1.variable_scope("Decoder"):
 
-          self.decoder = tf.keras.Sequential(
-            [
+            self.decoder = tf.keras.Sequential([
                 tf.keras.layers.InputLayer(input_shape=(self.latent_dim + self.label_dim,)),
-                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_1_dim"],
-                                              activation = self.activation_fn, 
-                                              kernel_initializer = self.initializer),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_1_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
                 tf.keras.layers.Dropout(self.dropout),
-                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_2_dim"],
-                                              activation = self.activation_fn, 
-                                              kernel_initializer = self.initializer),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_2_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
                 tf.keras.layers.Dropout(self.dropout),
-                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_3_dim"],
-                                              activation = self.activation_fn, 
-                                              kernel_initializer = self.initializer),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_3_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
                 tf.keras.layers.Dropout(self.dropout),
+
+                tf.keras.layers.Dense(self.nn_architecture["hidden_dec_4_dim"], kernel_initializer = self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
+                tf.keras.layers.Dropout(self.dropout),
+
                 # Output layer - No activation
-                tf.keras.layers.Dense(self.image_dim),
+                tf.keras.layers.Dense(self.image_dim)
             ])
 
-        # Output
+        
         logits = self.decoder(conditional_z)
 
         self.generated_image = tf.nn.sigmoid(logits)
 
-        #---------Loss Function-----------
+
+        #------------------
+        # Loss Function
+        #------------------
         with tf.compat.v1.name_scope('Loss'):
-
-            self.reconstr_loss = self.bernoulli_log_likelihood()
+            # KL divergence
             self.latent_loss = self.kl_divergence()
-            self.loss = self.alpha * self.reconstr_loss + self.beta * self.latent_loss
-            
+            # Reconstruction loss
+            self.reconstr_loss = self.bernoulli_log_likelihood()
+            # ELBO Loss
+            self.loss = tf.math.scalar_mul(self.alpha, self.reconstr_loss) + tf.math.scalar_mul(self.beta, self.latent_loss)
+            # Mean over the batch           
+            self.loss = tf.reduce_mean(self.loss)
 
-        #-----------Optimizer---------------
-        optimizer = tf.keras.optimizers.Adam(learning_rate = self.learning_rate)
-        # Maximum gradient norm
-        if self.max_grad_norm:
-            _var = tf.compat.v1.trainable_variables()
-            grads, _ = tf.compat.v1.clip_by_global_norm(tf.compat.v1.gradients(self.loss, _var), self.max_grad_norm)
-            self.train = optimizer.apply_gradients(zip(grads, _var))
-        else:
-            self.train = optimizer.minimize(self.loss)
             
-        
+        #------------------
+        # Optimizer
+        #------------------
+        optimizer = tf.keras.optimizers.Adam(learning_rate = self.learning_rate)
+        # Gradient clipping 
+        _var = tf.compat.v1.trainable_variables()
+        grads, _ = tf.compat.v1.clip_by_global_norm(tf.compat.v1.gradients(self.loss, _var), self.max_grad_norm)
+       
+        self.train = optimizer.apply_gradients(zip(grads, _var))
+                   
         # Saver
         self.saver = tf.compat.v1.train.Saver()
 
-    #------------------------------------
+
+    #---------------------------------
     # ELBO loss methods
     #---------------------------------
 
     def kl_divergence(self):
         """Computes the KL divergence KL(q(z | x) ∥ p(z | x))"""
-        z_log_var = tf.compat.v1.clip_by_value(self.z_log_var, clip_value_min=1e-10, clip_value_max=1e+2)
-        return  0.5 * tf.compat.v1.reduce_mean(tf.compat.v1.reduce_sum(
-            tf.square(self.z_mean) + tf.math.exp(z_log_var) - z_log_var - 1., axis=1))
+        #z_log_var = tf.compat.v1.clip_by_value(self.z_log_var, clip_value_min=1e-10, clip_value_max=1e+2)
+        kl = - 0.5 * tf.reduce_sum(1 + self.z_log_var - tf.square(self.z_mean) - tf.exp(self.z_log_var), axis=1)
+        return  kl
 
     def mse(self):
         """Computes the reconstruction loss as MSE."""
-        return tf.reduce_mean(tf.square(self.x - self.generated_image))
+        x = tf.keras.backend.batch_flatten(self.x)
+        x_reconstr = tf.keras.backend.batch_flatten(self.generated_image)
+        return tf.reduce_sum(tf.square(x - x_reconstr), axis = 1)
 
     def bernoulli_log_likelihood(self, eps=1e-10):
         """
         Computes reconstruction loss as Bernoulli log likelihood.
         """
         _tmp = self.x * tf.math.log(eps + self.generated_image) + (1 - self.x) * tf.math.log(eps + 1 - self.generated_image)
-        return -tf.compat.v1.reduce_mean(tf.compat.v1.reduce_sum(_tmp, 1))
+        return - tf.compat.v1.reduce_sum(_tmp, 1)
+
 
     #-------------------------------------------------
     # Reconstruction, Encoding and Decoding methods
     #-------------------------------------------------
 
     def reconstruct(self, inputs, label):
-        """Reconstruct a given data. """
+        """Reconstructs a given data. """
         assert len(inputs) == self.batch_size
         assert len(label) == self.batch_size
         return self.sess.run(self.generated_image, feed_dict={self.x: inputs, self.y: label})
 
     def encode(self, inputs, label):
-        """ 
-        Input -> latent space 
-        """
+        """ Encodes the input into the latent space."""
         return self.sess.run(self.z_mean, feed_dict={self.x: inputs, self.y: label})
 
     def decode(self, label, z = None):
         """ 
-        Generates data by sampling from the latent space.
+        Generates data starting from the point z in the latent space.
         If z is None, z is drawn from prior in latent space.
-        Otherwise, data for this point in latent space is generated.
         """
         if z is None:
-            z = 0.0 + np.random.randn(self.batch_size, self.latent_dim) * 0.1
+            z = 0.0 + np.random.randn(self.batch_size, self.latent_dim) * 1.0
         return self.sess.run(self.generated_image, feed_dict={self.z: z, self.y: label})
-        

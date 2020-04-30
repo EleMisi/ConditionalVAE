@@ -15,21 +15,21 @@ from utils import read_VarToSave, batch_generator, get_parameter
 
 
 
-def generate_image_random(model, test_data, name = None, target_attr = None, std=0.01):
+def image_generation(model, test_data, name = None, target_attr = None, std=0.01):
     """
-    Generate and plot 10 images with a given attribute (if given).
+    Generates and plots 16 images with a given attribute (if given).
     - list target_attr : list of desidered attributes [default None]
     """
-    # Vector of specified attributes
+    # Vector of user-defined attributes.
     if target_attr:       
         attr_vect = np.zeros(test_data["n_attr"])
         for attr in target_attr:
             attr_vect[attr] = 1
         labels = np.tile(attr_vect, reps = [model.batch_size, 1])
-        name = name + "Attributes"
+        name = name + "Attributes"+str(target_attr)
         print("Generation of 16 images with attributes: ", target_attr )
 
-   # Vector of fixed attributes
+   # Vector of attributes taken from the test set.
     else:        
         batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'], model_name = model.nn_type)
         _, labels = next(batch_gen)
@@ -42,21 +42,21 @@ def generate_image_random(model, test_data, name = None, target_attr = None, std
     imshow_grid(generated, model_name = model.nn_type, shape=[4, 4], name = name, save = True)
 
 
-def reconstruct(model, test_data, save_path=None):
+def image_reconstruction(model, test_data, save_path=None):
     """
-    Reconstruct and plot 5 input images.
+    Reconstructs and plots 5 test images.
     """
     batch_gen = batch_generator(test_data['batch_dim'], test_data['test_labels'], model_name = model.nn_type)
     _x, _y = next(batch_gen)
     reconstruction = model.reconstruct(_x, _y)
 
-    #-----------Plot----------------
+    # Plot
     plt.figure(figsize=(6, 10))
     if model.nn_type == "Dense":
         for i in range(5):
             plt.subplot(5, 2, 2 * i + 1)
             plt.imshow(_x[i].reshape(64, 64, 3))
-            plt.title("Test input %i" % np.argmax(i))
+            plt.title("Original")
             plt.subplot(5, 2, 2 * i + 2)
             plt.imshow(reconstruction[i].reshape(64, 64, 3))
             plt.title("Reconstruction")
@@ -71,7 +71,7 @@ def reconstruct(model, test_data, save_path=None):
         for i in range(5):
             plt.subplot(5, 2, 2 * i + 1)
             plt.imshow(_x[i].reshape(64, 64, 3))
-            plt.title("Test input %i" % np.argmax(i))
+            plt.title("Original")
             plt.subplot(5, 2, 2 * i + 2)
             plt.imshow(reconstruction[i])
             plt.title("Reconstruction")
@@ -109,11 +109,11 @@ def imshow_grid(imgs, model_name, shape=[2, 5], name='default', save=False):
         else:
             plt.show()
 
+
+
 if __name__ == '__main__':
 
-    #----------------Parser------------------
-
-    parser = argparse.ArgumentParser(description='This is a plot script for the CondVAE.', formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description='Conditional VAE plot script.', formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument('-m', '--plot_type', action='store', nargs='?', const=None, default=None, type=str,
                         choices=None, metavar=None, help="""Plot type.\n- reconstr: reconstruction - gen: generate 10 images with random/given attributes. [default None (all)] """)
     parser.add_argument('-n', '--z_dim', action='store', nargs='?', const=None, default=20, type=int,
@@ -137,19 +137,21 @@ if __name__ == '__main__':
 
     # Set the model
     if args.neural_network == 'Dense':
-        param = get_parameter("./parameters.json", args.z_dim)
+        nn_architecture = get_parameter("./parameters.json", args.z_dim)
         acc = np.load("./log/DenseCVAE_%i/%sacc.npz" % (args.z_dim, pr))
-        opt = dict(nn_architecture=param, batch_size=acc["batch_size"])
-        opt["label_dim"] = test_data["n_attr"]
-        opt["dropout"] = 0
-        model = DenseCVAE(load_model="./log/DenseCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
+        params = dict(nn_architecture=nn_architecture, batch_size=acc["batch_size"])
+        params["label_dim"] = test_data["n_attr"]
+        params["dropout"] = 0
+        params["is_train"] = False
+        model = DenseCVAE(load_model="./log/DenseCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **params)
     else:
         acc = np.load("./log/ConvCVAE_%i/%sacc.npz" % (args.z_dim, pr))
-        opt = dict(batch_size=acc["batch_size"])
-        opt["label_dim"] = test_data["n_attr"]
-        opt["latent_dim"] = args.z_dim
-        opt["dropout"] = 0
-        model = ConvCVAE(load_model="./log/ConvCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **opt)
+        params = dict(batch_size=acc["batch_size"])
+        params["label_dim"] = test_data["n_attr"]
+        params["latent_dim"] = args.z_dim
+        params["dropout"] = 0
+        params["is_train"] = False
+        model = ConvCVAE(load_model="./log/ConvCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **params)
 
     
     # Saving path for images
@@ -157,11 +159,10 @@ if __name__ == '__main__':
     if not os.path.exists(folder):
         os.mkdir(folder)
 
-    #-------------Plot-----------
 
     # Reconstruction
     if args.plot_type is None or args.plot_type == "reconstr":
-        reconstruct(model, test_data, save_path=folder) 
+        image_reconstruction(model, test_data, save_path=folder) 
     
     # Generation 
     if args.plot_type is None or args.plot_type == "gen":
@@ -178,6 +179,6 @@ if __name__ == '__main__':
 
             target_attr = list(map(int,input("\nEnter the desired attributes:\n").strip().split()))[:n] 
 
-        generate_image_random(model, test_data, name = folder + "random_generation", target_attr = target_attr, std=args.std)
+        image_generation(model, test_data, name = folder + "random_generation", target_attr = target_attr, std=args.std)
 
 
