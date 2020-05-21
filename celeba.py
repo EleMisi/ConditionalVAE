@@ -133,14 +133,14 @@ class CelebA():
             batch_imgs = []
             batch_labels = []
             images_id = []
-            labels = self.train_labels
+            #labels = self.train_labels
             # Shuffling
-            random.shuffle(labels)
+            #random.shuffle(labels)
 
             for i in range(batch_dim):
                idx = random.randint(0,len(self.train_labels)-1)
-               batch_labels.append(labels[idx][1])
-               images_id.append(labels[idx][0])
+               batch_labels.append(self.train_labels[idx][1])
+               images_id.append(self.train_labels[idx][0])
 
             batch_imgs = self.create_image_batch(images_id, model_name) 
 
@@ -193,7 +193,7 @@ class CelebA():
 
             epoch_loss = np.mean(epoch_loss, 0)
             loss.append(epoch_loss)
-
+            random.shuffle(self.train_labels)
             log.info("epoch %i: loss %0.8f, reconstr loss %0.8f, latent loss %0.8f"
                         % (epoch, epoch_loss[0], epoch_loss[1], epoch_loss[2]))    
             
