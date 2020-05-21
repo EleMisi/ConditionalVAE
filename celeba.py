@@ -1,5 +1,4 @@
 from collections import OrderedDict
-from glob import glob
 import logging
 import numpy as np
 import os
@@ -9,8 +8,24 @@ import random
 import sys
 import tensorflow as tf
 
-from utils import create_log
+# from utils import create_log
+def create_log(name):
+    """Log file creator."""
+    if os.path.exists(name):
+        os.remove(name)
 
+    log = logging.getLogger(name)
+    log.setLevel(logging.DEBUG)
+    # handler for log file
+    handler1 = logging.FileHandler(name)
+    handler1.setFormatter(logging.Formatter("H_1, %(asctime)s %(levelname)8s %(message)s"))
+
+    # handler for standard output
+    handler2 = logging.StreamHandler()
+    handler2.setFormatter(logging.Formatter("H_2, %(asctime)s %(levelname)8s %(message)s"))
+    log.addHandler(handler1)
+    log.addHandler(handler2)
+    return log
 
 class CelebA():
 
@@ -37,9 +52,12 @@ class CelebA():
         image = image.crop([x, y, x + img_size, y+img_size])
         # Resize
         image = image.resize([img_resize, img_resize], Image.BILINEAR)
-        # Normalization
+        # Normalization: Convert images to floating point with the range [-0.5, 0.5]
         img = np.array(image.convert(mode)).astype('float32')
-        img /= 255.
+        img /= 255.0
+        # Data Augmentation
+        if random.random() < 0.5:
+            img = np.flip(img, 1)
 
         if model_name == "Dense" :
             img = img.ravel()
@@ -47,12 +65,11 @@ class CelebA():
         return np.array(img)
 
 
-    def create_image_batch(self, labels, model_name):
+    def create_image_batch(self, imgs_id, model_name):
         """
         Returns the list of images corresponding to the given labels.
         """
         imgs = []
-        imgs_id = [item[0] for item in labels]
 
         for i in imgs_id:
             image_path ='/input/CelebA/img_align_celeba/img_align_celeba/' + i
@@ -69,11 +86,12 @@ class CelebA():
             attributes : List
                 list of attributes names
         """
-        print("\nLoading labels and attributes...\n")
+        print("Loading labels and attributes...")
 
         file_path = "/input/CelebA/list_attr_celeba.csv"
         df = pd.read_csv(file_path, header = 0, index_col = 0).replace(-1,0)
-
+        # Remove unuseful attributes
+        df.drop(["Wearing_Necklace", "Wearing_Necktie"], axis=1, inplace = True)
         attributes = [x for x in df.columns] 
         od = OrderedDict(df.to_dict('index'))
         labels = OrderedDict()
@@ -93,48 +111,41 @@ class CelebA():
         print("\nSplitting dataset...\n")
 
         # Shuffle 
-        shuffled_labels = self.shuffle()
-        # Split (according to train_dim)
+        #shuffled_labels = self.shuffle()
         n_train = int(len(self.labels) * self.train_dim)
-        list_items = list(shuffled_labels.items())
-        train_labels = list_items[:n_train]
-        test_labels = list_items[n_train:]
+        labels = OrderedDict(list(self.labels.items()))
+        list_labels = list(labels.items())
+        # Split (according to train_dim)
+        train_labels = list_labels[:n_train]
+        test_labels = list_labels[n_train:]
 
         print("Train set dimension: {} \nTest set dimension: {} \n".format(len(train_labels), len(test_labels)))
         
         return train_labels, test_labels
     
 
-    def shuffle(self):
-        """
-        Returns a shuffled OrderedDict of labels
-        """
-        items = list(self.labels.items())
-        random.shuffle(items)
-        shuffled_labels = OrderedDict(items)
-    
-        return shuffled_labels
-
 
     def batch_generator(self, batch_dim, model_name):
         """
-        Batch generator using train set labels.
+        Batch generator.
         """
         while True:
             batch_imgs = []
-            labels = []
-            for label in (self.train_labels):
-                labels.append(label)
-                if len(labels) == batch_dim:
-                    batch_imgs = self.create_image_batch(labels, model_name)
-                    batch_labels = [x[1] for x in labels]
-                    yield (np.asarray(batch_imgs), np.asarray(batch_labels))
-                    batch_imgs = []
-                    labels = []
-                    batch_labels = []
-            if batch_imgs:
-                yield (np.asarray(batch_imgs), np.asarray(batch_labels))
+            batch_labels = []
+            images_id = []
+            labels = self.train_labels
+            # Shuffling
+            random.shuffle(labels)
 
+            for i in range(batch_dim):
+               idx = random.randint(0,len(self.train_labels)-1)
+               batch_labels.append(labels[idx][1])
+               images_id.append(labels[idx][0])
+
+            batch_imgs = self.create_image_batch(images_id, model_name) 
+
+            yield (np.asarray(batch_imgs), np.asarray(batch_labels))
+            
 
     #-------------------------
     #      CelebA Train
@@ -193,6 +204,7 @@ class CelebA():
                 np.savez("%s/progress-%i-acc.npz" % (save_path, epoch), loss=np.array(loss),
                         learning_rate=model.learning_rate, epoch=n_epochs, batch_size=model.batch_size,
                         clip=model.max_grad_norm)
+                
 
         # Save the final model                
         model.saver.save(model.sess, "%s/model.ckpt" % save_path)

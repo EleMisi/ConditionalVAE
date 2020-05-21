@@ -149,7 +149,6 @@ if __name__ == '__main__':
         params = dict(batch_size=acc["batch_size"])
         params["label_dim"] = test_data["n_attr"]
         params["latent_dim"] = args.z_dim
-        params["dropout"] = 0
         params["is_train"] = False
         model = ConvCVAE(load_model="./log/ConvCVAE_%i/%smodel.ckpt" % (args.z_dim, pr), **params)
 

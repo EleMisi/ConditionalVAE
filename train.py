@@ -43,8 +43,7 @@ if __name__ == '__main__':
         alpha = args.alpha,
         beta = args.beta, 
         learning_rate=args.lr, 
-        max_grad_norm=args.clip, 
-        dropout = args.dropout)
+        max_grad_norm=args.clip)
 
     
     # Prepare dataset
@@ -57,6 +56,7 @@ if __name__ == '__main__':
         params["label_dim"] = dataset.n_attr
         params["nn_architecture"]=nn_architecture   
         params["save_path"] = save_path
+        params["dropout"] = args.dropout
         model = DenseCVAE(**params)
         print("Dense CVAE built.")
         

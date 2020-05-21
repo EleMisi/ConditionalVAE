@@ -9,7 +9,7 @@ class ConvCVAE (tf.keras.Model) :
     def __init__(self, 
                  label_dim,
                  latent_dim,
-                 activation_fn = tf.nn.relu,
+                 activation_fn = tf.nn.leaky_relu,
                  alpha = 1,
                  beta = 1,
                  image_dim = [64, 64, 3],               
@@ -18,7 +18,6 @@ class ConvCVAE (tf.keras.Model) :
                  save_path = None,
                  load_model = None,
                  max_grad_norm = 1,
-                 dropout = 0.5,
                  is_train = True
                  ):
 
@@ -28,7 +27,7 @@ class ConvCVAE (tf.keras.Model) :
         label_dim : int 
             label vector dimension, 
         activation_fn 
-                FC layers activation function [default tf.nn.relu]
+                FC layers activation function [default tf.nn.leaky_relu]
         alpha : float
                 alpha-beta VAE parameter for weighting the reconstruction loss term [default 1]
         beta : float
@@ -43,8 +42,6 @@ class ConvCVAE (tf.keras.Model) :
                 path of the model loader [default None]
         max_grad_norm : float
                 gradient clipping parameter [default 1]
-        dropout : float
-                dropout regularization parameter [deafult 0.5]
         is_train : bool
                 batch normalization parameter [default True]
 
@@ -59,8 +56,7 @@ class ConvCVAE (tf.keras.Model) :
         self.learning_rate = learning_rate
         self.batch_size = batch_size
         self.max_grad_norm = max_grad_norm
-        self.dropout = dropout
-        self.nn_type = "Convolutional"
+        self.nn_type = "Conv"
         self.is_train = is_train
         
         self.build_graph()
@@ -108,7 +104,7 @@ class ConvCVAE (tf.keras.Model) :
                 tf.keras.layers.InputLayer(input_shape=self.image_dim[0:-1] + [n_channels]),
                 
                 tf.keras.layers.Conv2D( 
-                    filters=8, 
+                    filters=32, 
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
@@ -117,7 +113,7 @@ class ConvCVAE (tf.keras.Model) :
                 tf.keras.layers.Activation(self.activation_fn),
 
                 tf.keras.layers.Conv2D( 
-                    filters=16, 
+                    filters=64, 
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
@@ -126,7 +122,7 @@ class ConvCVAE (tf.keras.Model) :
                 tf.keras.layers.Activation(self.activation_fn),
             
                 tf.keras.layers.Conv2D( 
-                    filters=32, 
+                    filters=128, 
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
@@ -135,7 +131,7 @@ class ConvCVAE (tf.keras.Model) :
                 tf.keras.layers.Activation(self.activation_fn),
                
                 tf.keras.layers.Conv2D(
-                    filters=64, 
+                    filters=256, 
                     kernel_size=3, 
                     strides=(2, 2), 
                     padding = 'same',
@@ -170,6 +166,24 @@ class ConvCVAE (tf.keras.Model) :
                 tf.keras.layers.Reshape(target_shape=(4, 4, 32)),
 
                 tf.keras.layers.Conv2DTranspose(
+                    filters=256,
+                    kernel_size=3,
+                    strides=(2, 2),
+                    padding='same',
+                    kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
+
+                tf.keras.layers.Conv2DTranspose(
+                    filters=128,
+                    kernel_size=3,
+                    strides=(2, 2),
+                    padding='same',
+                    kernel_initializer=self.initializer),
+                tf.keras.layers.BatchNormalization(trainable = self.is_train),
+                tf.keras.layers.Activation(self.activation_fn),
+
+                tf.keras.layers.Conv2DTranspose(
                     filters=64,
                     kernel_size=3,
                     strides=(2, 2),
@@ -180,24 +194,6 @@ class ConvCVAE (tf.keras.Model) :
 
                 tf.keras.layers.Conv2DTranspose(
                     filters=32,
-                    kernel_size=3,
-                    strides=(2, 2),
-                    padding='same',
-                    kernel_initializer=self.initializer),
-                tf.keras.layers.BatchNormalization(trainable = self.is_train),
-                tf.keras.layers.Activation(self.activation_fn),
-
-                tf.keras.layers.Conv2DTranspose(
-                    filters=16,
-                    kernel_size=3,
-                    strides=(2, 2),
-                    padding='same',
-                    kernel_initializer=self.initializer),
-                tf.keras.layers.BatchNormalization(trainable = self.is_train),
-                tf.keras.layers.Activation(self.activation_fn),
-
-                tf.keras.layers.Conv2DTranspose(
-                    filters=8,
                     kernel_size=3,
                     strides=(2, 2),
                     padding='same',
@@ -225,9 +221,11 @@ class ConvCVAE (tf.keras.Model) :
             # KL divergence
             self.latent_loss = self.kl_divergence()
             # Reconstruction loss
-            self.reconstr_loss = self.mse()
+            self.reconstr_loss = np.prod((64,64)) * tf.keras.losses.binary_crossentropy(
+                tf.keras.backend.flatten(self.x),
+                tf.keras.backend.flatten(self.generated_image))
             # ELBO Loss
-            self.loss = tf.math.scalar_mul(self.alpha, self.reconstr_loss) + tf.math.scalar_mul(self.beta, self.latent_loss)
+            self.loss = self.reconstr_loss + self.beta * self.latent_loss
             # Mean over the batch           
             self.loss = tf.reduce_mean(self.loss)
 
@@ -253,14 +251,14 @@ class ConvCVAE (tf.keras.Model) :
     def kl_divergence(self):
         """Computes the KL divergence KL(q(z | x) ∥ p(z | x))"""
         #z_log_var = tf.compat.v1.clip_by_value(self.z_log_var, clip_value_min=1e-10, clip_value_max=1e+2)
-        kl = - 0.5 * tf.reduce_sum(1 + self.z_log_var - tf.square(self.z_mean) - tf.exp(self.z_log_var), axis=1)
+        kl = - 0.5 * tf.reduce_sum(1 + self.z_log_var - tf.square(self.z_mean) - tf.exp(self.z_log_var), axis=-1)
         return  kl
 
     def mse(self):
         """Computes the reconstruction loss as MSE."""
         x = tf.keras.backend.batch_flatten(self.x)
         x_reconstr = tf.keras.backend.batch_flatten(self.generated_image)
-        return tf.reduce_sum(tf.square(x - x_reconstr), axis = 1)
+        return tf.reduce_sum(tf.square(x - x_reconstr), axis = -1)
     
     def bernoulli_log_likelihood(self, eps=1e-10):
         """
