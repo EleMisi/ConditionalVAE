@@ -109,9 +109,7 @@ class CelebA():
         Returns train set and test set labels as lists of tuples [(im_id1, label_1), ..., (im_idN, label_N)]
         """
         print("\nSplitting dataset...\n")
-
-        # Shuffle 
-        #shuffled_labels = self.shuffle()
+        
         n_train = int(len(self.labels) * self.train_dim)
         labels = OrderedDict(list(self.labels.items()))
         list_labels = list(labels.items())
@@ -133,10 +131,6 @@ class CelebA():
             batch_imgs = []
             batch_labels = []
             images_id = []
-            #labels = self.train_labels
-            # Shuffling
-            #random.shuffle(labels)
-
             for i in range(batch_dim):
                idx = random.randint(0,len(self.train_labels)-1)
                batch_labels.append(self.train_labels[idx][1])
@@ -193,7 +187,7 @@ class CelebA():
 
             epoch_loss = np.mean(epoch_loss, 0)
             loss.append(epoch_loss)
-            random.shuffle(self.train_labels)
+
             log.info("epoch %i: loss %0.8f, reconstr loss %0.8f, latent loss %0.8f"
                         % (epoch, epoch_loss[0], epoch_loss[1], epoch_loss[2]))    
             
