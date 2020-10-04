@@ -146,7 +146,7 @@ def attr_manipulation(images, labels, target_attr, model):
     reconstructed_images = []
     modified_images = []
 
-    for i in range(batch_size):
+    for i in range(images.shape[0]):
 
         img = images[i][np.newaxis,...]
         label = labels[i][np.newaxis,...]
@@ -158,7 +158,7 @@ def attr_manipulation(images, labels, target_attr, model):
         modified_label = labels[i]
         
         for attr, value in target_attr.items():
-            
+
             modified_label[attr] = value
             modified_label = modified_label[np.newaxis,...]
 
