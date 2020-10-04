@@ -1,11 +1,6 @@
-from collections import OrderedDict
-from glob import glob
 import kaggle
-import numpy as np
 import os
-import pandas as pd
-from PIL import Image
-import json
+
 
 dataset_dir = '/input/CelebA'
 
@@ -16,7 +11,7 @@ dataset_dir = '/input/CelebA'
 
 def download_celabA(dataset_dir):
     """
-    Download CelebA dataset in dataset_dir.
+    Downloads CelebA dataset from Kaggle and loads it in dataset_dir.
     """
     if not os.path.exists(dataset_dir):
         kaggle.api.authenticate()
