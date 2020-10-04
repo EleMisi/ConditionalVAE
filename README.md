@@ -1,4 +1,5 @@
 # ConditionalVAE
+
 ConditionalVAE is a project realized as part of the *Deep Learning* exam of the [Master's degree in Artificial Intelligence,  University of Bologna](https://corsi.unibo.it/2cycle/artificial-intelligence).
 The aim of this project is to build a **Conditional Generative model** and test it on the well known **[CelebA dataset](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)**.  
 
