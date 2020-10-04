@@ -33,16 +33,20 @@ If you are interested, [here](https://eleonoramisino.altervista.org/play-with-co
 ## Results
 
 ### Conditional Image Generation
-An example of conditional generated images with specific attributes (listed on the side):
+An example of new images generated with specific attributes (listed on the side):
+
 ![Conditional Image Generation](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/immagine-4.png)
 
 ### Vector Interpolation
-The vector interpolation in the latent space is a method to generate new images which simulate the transition between two original images (which are the first and the last image of each row).
+The vector interpolation in the latent space is a method to generate new images which simulate the transition between two images.  
+In the figure below, we report 4 examples of images interpolation: in each row the first and the last images are the original ones, while the 6 images in the middle are the new ones.
+
 ![Vector Interpolation](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/immagine-8.png)
 
 ### Attributes Manipulation
-Starting from a batch of images, we can reconstruct it chaniging some attributes.  
+Starting from a batch of images, we can reconstruct it modifying some face attributes.  
 For example, we can transform all the subjects into men with moustache:
+
 ![Attributes Manipulation2](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/All_men_with_mustache.png)
 
 ### Built With
