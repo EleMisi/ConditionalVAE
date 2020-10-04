@@ -1,30 +1,52 @@
 # ConditionalVAE
 ConditionalVAE is a project realized as part of the *Deep Learning* exam of the [Master's degree in Artificial Intelligence,  University of Bologna](https://corsi.unibo.it/2cycle/artificial-intelligence).
-The aim of this project is to build a **Conditional Generative model** and test it on the well known **[CelebA dataset](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)**.
-We implemented from scratch a the **Conditional Variational Autoencoder** using **Tensorflow 2.2**
+The aim of this project is to build a **Conditional Generative model** and test it on the well known **[CelebA dataset](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)**.  
 
+We implemented from scratch a **Conditional Variational Autoencoder** using **Tensorflow 2.2** (in the figure below there is a diagram of our architecture).  
+We trained the model using Google Colab and we explored the conditioning ability of our model by generating new faces with specific attributes, and by performing **attributes manipulation** and **latent vectors interpolation**.  
+
+![NN diagram](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/immagine-2.png)
+
+
+
+--------
+
+If you are interested, [here](https://eleonoramisino.altervista.org/play-with-conditional-generative-models/) you can find a brief survey about this project.
+
+--------
 
 ## Instructions 
 
 ### Training the model
 
-1. Download the repository
-2. Open the *Train_ConditionalVae* notebook on Google Colab
-3. Run the notebook with your own configuration
+1. Download the repository.
+2. Open the *Train_ConditionalVae* notebook on Google Colab.
+3. Run the notebook with your own configuration.
 
 ### Testing the model
 
-0. Train the model 
-1. Open the *Image_Generation* notebook on Google Colab
-3. Run the notebook with your own configuration
+0. Train the model.
+1. Open the *Image_Generation* notebook on Google Colab.
+3. Run the notebook with your own configuration.
 
 ## Results
 
-TODO
+### Conditional Image Generation
+An example of conditional generated images with specific attributes (listed on the side):
+![Conditional Image Generation](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/immagine-4.png)
+
+### Vector Interpolation
+The vector interpolation in the latent space is a method to generate new images which simulate the transition between two original images (which are the first and the last image of each row).
+![Vector Interpolation](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/immagine-8.png)
+
+### Attributes Manipulation
+Starting from a batch of images, we can reconstruct it chaniging some attributes.  
+For example, we can transform all the subjects into men with moustache:
+![Attributes Manipulation2](https://eleonoramisino.altervista.org/wp-content/uploads/2020/08/All_men_with_mustache.png)
 
 ### Built With
 
-* [Python 3]
+* Python 3
 
 ### Authors
 
@@ -59,7 +81,3 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE.md](htt
 * Christian Szegedy, Vincent Vanhoucke, Sergey Ioffe, Jonathon Shlens, and Zbigniew Wojna.Rethinking the inception architecture for computer vision, 2015.
 * Aaron van den Oord, Oriol Vinyals, and Koray Kavukcuoglu. Neural discrete representationlearning, 2017.
 * Biao  Zhang,  Deyi  Xiong,  Jinsong  Su,  Hong  Duan,  and  Min  Zhang.   Variational  neuralmachine translation, 2016
-
-
-
-
