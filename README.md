@@ -12,7 +12,7 @@ We trained the model using Google Colab and we explored the conditioning ability
 
 --------
 
-If you are interested, [here](https://eleonoramisino.altervista.org/play-with-conditional-generative-models/) you can find a brief survey about this project.
+If you are interested, [here](https://eleonoramisino.altervista.org/play-with-conditional-generative-models/) you can find a brief report about this project.
 
 --------
 
